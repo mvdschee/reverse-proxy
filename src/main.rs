@@ -6,7 +6,6 @@ use crate::{
 	},
 };
 pub use error::{Error, Result};
-use std::env;
 
 mod config;
 mod core;

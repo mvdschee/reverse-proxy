@@ -23,18 +23,21 @@ async-trait = "0.1.89"
 tokio = { version = "1.52.3", features = ["full"] }
 
 # Certs
-rcgen = "0.14.8"
+# used Ring as backend for default
+rcgen = { version = "0.14.8", features = ["default"] }
+# match the backed from rcgen
+instant-acme = { version = "0.8.5", features = ["rcgen"] }
 
 # TOML
 toml = "1.1.2"
 
 # Json
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 
 # Others
-thiserror = "2.0"
-chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0.18"
+chrono = { version = "0.4.44", features = ["serde"] }
 
 # HTTP
-http = "1.4.0"
+http = "1.4.1"
 pingora = { version = "0.8.0", features = ["proxy", "boringssl"] }

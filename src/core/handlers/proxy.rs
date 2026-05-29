@@ -5,23 +5,20 @@ use crate::{
 		models::{
 			certs::{TlsCerts, TlsMaterial},
 			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap},
-			routes::Host,
 		},
 	},
 	error,
 };
 use async_trait::async_trait;
-use http::{Response, header};
+use http::header;
 use pingora::{
 	ErrorType,
-	apps::http_app::ServeHttp,
-	http::{ResponseHeader, StatusCode},
+	http::ResponseHeader,
 	listeners::{TlsAccept, tls::TlsSettings},
 	prelude::{Error as PingoraError, HttpPeer, Result as PingoraResult},
-	protocols::http::ServerSession,
 	proxy::{ProxyHttp, Session, http_proxy_service},
 	server::{Server, configuration::ServerConf},
-	services::{Service, listening::Service as ListeningService},
+	services::Service,
 	tls::{self, ssl},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -74,8 +71,6 @@ pub fn run_proxy(proxy_config: ProxyConfig, routes: Vec<ProxyRoute>) -> Result<(
 	server.add_service(tls_service);
 
 	server.run_forever();
-
-	Err(Error::Proxy("proxy stopped".to_string()))
 }
 
 pub fn tls_routes_service(

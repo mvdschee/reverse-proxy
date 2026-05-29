@@ -1,9 +1,8 @@
 use crate::{
 	Error, Result,
-	config::Acme,
 	core::{
 		handlers::{
-			certs::{background_certs_task, generate_certs},
+			certs::generate_certs,
 			filesystem::{check_file_exists, safe_path},
 			proxy::run_proxy,
 		},

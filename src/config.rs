@@ -1,9 +1,9 @@
 use crate::{
 	Error, Result,
 	core::models::{
-		certs::{CertDir, CertificateType, Email},
+		certs::{CertDir, Email},
 		proxy::{ProxyInputAddress, ProxyPort},
-		routes::{Host, Route, Upstream},
+		routes::Route,
 		tasks::TaskInterval,
 	},
 };
