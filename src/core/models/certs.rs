@@ -19,7 +19,7 @@ pub enum CertificateType {
 }
 
 #[derive(Debug, Clone)]
-pub struct Certificate {
+pub struct CertificateConfig {
 	pub host: Host,
 	pub cert_dir: CertDir,
 	pub email: Email,

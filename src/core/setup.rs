@@ -7,7 +7,7 @@ use crate::{
 			proxy::run_proxy,
 		},
 		models::{
-			certs::{CertDir, Certificate, CertificateType, Email},
+			certs::{CertDir, CertificateConfig, CertificateType, Email},
 			proxy::{ProxyConfig, ProxyRoute, ProxyTls},
 			routes::Route,
 			tasks::TaskInterval,
@@ -45,7 +45,7 @@ impl HandleFileSystem {
 }
 
 pub struct HandleCertificates {
-	certificates: Vec<Certificate>,
+	certificate_configs: Vec<CertificateConfig>,
 	task_interval: TaskInterval,
 }
 
@@ -56,24 +56,24 @@ impl HandleCertificates {
 		routes: Vec<Route>,
 		task_interval: TaskInterval,
 	) -> Self {
-		let certificates = routes
+		let certificate_configs = routes
 			.into_iter()
-			.map(|route| Certificate {
+			.map(|route| CertificateConfig {
 				host: route.host.clone(),
 				cert_dir: cert_dir.clone(),
 				email: email.clone(),
 				cert_type: route.cert_type.clone(),
 			})
-			.collect::<Vec<Certificate>>();
+			.collect::<Vec<CertificateConfig>>();
 
 		Self {
-			certificates,
+			certificate_configs,
 			task_interval,
 		}
 	}
 
 	pub fn run(self) -> Result<()> {
-		generate_certs(self.certificates.clone())?;
+		generate_certs(self.certificate_configs.clone())?;
 
 		// spawn(async move {
 		// 	info!("starting certificates tasks...");

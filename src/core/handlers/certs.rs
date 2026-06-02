@@ -3,7 +3,7 @@ use crate::{
 	core::{
 		handlers::filesystem::{safe_path, write_file},
 		models::{
-			certs::{Certificate, CertificateType},
+			certs::{CertificateConfig, CertificateType},
 			tasks::TaskInterval,
 		},
 	},
@@ -13,20 +13,20 @@ use rcgen::{CertifiedKey, generate_simple_self_signed};
 use std::time::Duration;
 use tokio::time;
 
-pub fn generate_certs(certificates: Vec<Certificate>) -> Result<()> {
-	for certificate in &certificates {
+pub fn generate_certs(certificate_configs: Vec<CertificateConfig>) -> Result<()> {
+	for config in &certificate_configs {
 		// self signed certificates are good until the year 4096
 		// this will be replace every restart so it's safe to keep using the default setting
-		match certificate.cert_type {
+		match config.cert_type {
 			CertificateType::SelfSigned => {
-				info!("generating self-signed certificate for {}", certificate.host);
+				info!("generating self-signed certificate for {}", config.host);
 
-				let subject_alt_names = vec![certificate.host.to_string()];
-				let pem_filename = format!("{}.pem", certificate.host);
-				let key_filename = format!("{}.key", certificate.host);
+				let subject_alt_names = vec![config.host.to_string()];
+				let pem_filename = format!("{}.pem", config.host);
+				let key_filename = format!("{}.key", config.host);
 
-				let key_path = safe_path(&certificate.cert_dir, &key_filename)?;
-				let pem_path = safe_path(&certificate.cert_dir, &pem_filename)?;
+				let key_path = safe_path(&config.cert_dir, &key_filename)?;
+				let pem_path = safe_path(&config.cert_dir, &pem_filename)?;
 
 				let CertifiedKey {
 					cert,
@@ -41,7 +41,7 @@ pub fn generate_certs(certificates: Vec<Certificate>) -> Result<()> {
 				write_file(key_path, key_serialized.as_bytes())?;
 			},
 			CertificateType::Acme => {
-				info!("generating acme certificate for {}", certificate.host);
+				info!("generating acme certificate for {}", config.host);
 			},
 			CertificateType::None => {},
 		}
@@ -51,14 +51,14 @@ pub fn generate_certs(certificates: Vec<Certificate>) -> Result<()> {
 }
 
 pub async fn background_certs_task(
-	certificates: Vec<Certificate>,
+	certificates: Vec<CertificateConfig>,
 	task_interval: TaskInterval,
 ) -> Result<()> {
 	// only acme certificates need to be renewed
 	let certificates = certificates
 		.into_iter()
 		.filter(|cert| cert.cert_type == CertificateType::Acme)
-		.collect::<Vec<Certificate>>();
+		.collect::<Vec<CertificateConfig>>();
 
 	loop {
 		info!("certificates: {}", certificates.len());
