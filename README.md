@@ -63,6 +63,8 @@ services:
    proxy:
       image: ghcr.io/mvdschee/reverse-proxy:latest
       restart: unless-stopped
+      # host ports 80/443 mapped to container ports 8080/8443
+      # see ## Under the hood for explanation
       ports:
          - "80:8080"
          - "443:8443"
@@ -164,7 +166,7 @@ I'll be upfront on every public project about what was done with AI. For this on
 
 - Research and tradeoff discussions
 - Cleanup of the README and other prose
-- Talking through code-level solutions
+- Discussing code-level solutions
 - Generating the Docker image scaffolding from a spec
 
 # TODO:
