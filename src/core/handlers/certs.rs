@@ -1,47 +1,42 @@
 use crate::{
 	Error, Result,
 	core::{
-		handlers::filesystem::{safe_path, write_file},
+		handlers::filesystem::{check_file_exists, read_file, safe_path, write_file},
 		models::{
-			certs::{CertificateConfig, CertificateType},
+			certs::{
+				CertDir, CertPath, CertificateConfig, CertificateType, KeyPath, TlsMaterial,
+				TlsStore,
+			},
+			routes::Host,
 			tasks::TaskInterval,
 		},
 	},
 	info,
+	services::certs::{
+		acme::create_acme_dns_challenge, self_signed::create_self_signed_certificate_files,
+	},
+	warn,
 };
+use arc_swap::ArcSwap;
+use async_trait::async_trait;
+use pingora::{server::ShutdownWatch, services::background::BackgroundService, tls};
 use rcgen::{CertifiedKey, generate_simple_self_signed};
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::time;
 
-pub fn generate_certs(certificate_configs: Vec<CertificateConfig>) -> Result<()> {
-	for config in &certificate_configs {
-		// self signed certificates are good until the year 4096
-		// this will be replace every restart so it's safe to keep using the default setting
+pub fn create_initial_certs(certificate_configs: &Vec<CertificateConfig>) -> Result<()> {
+	for config in certificate_configs {
 		match config.cert_type {
 			CertificateType::SelfSigned => {
-				info!("generating self-signed certificate for {}", config.host);
-
-				let subject_alt_names = vec![config.host.to_string()];
-				let pem_filename = format!("{}.pem", config.host);
-				let key_filename = format!("{}.key", config.host);
-
-				let key_path = safe_path(&config.cert_dir, &key_filename)?;
-				let pem_path = safe_path(&config.cert_dir, &pem_filename)?;
-
-				let CertifiedKey {
-					cert,
-					signing_key,
-				} = generate_simple_self_signed(subject_alt_names)
-					.map_err(|e| Error::Certificate(e.to_string()))?;
-
-				let pem_serialized = cert.pem();
-				let key_serialized = signing_key.serialize_pem();
-
-				write_file(pem_path, pem_serialized.as_bytes())?;
-				write_file(key_path, key_serialized.as_bytes())?;
+				// self signed certificates are good until the year 4096
+				// this will be replace every restart so it's safe to keep using the default setting
+				// for selfsigned we will create the certs here right away
+				create_self_signed_certificate_files(config);
 			},
 			CertificateType::Acme => {
-				info!("generating acme certificate for {}", config.host);
+				// we do not generate any certs here that is for the backend process,
+				// we are only displaying the DNS entry that needs to be included to make sure you are able to get a cert
+				create_acme_dns_challenge(config);
 			},
 			CertificateType::None => {},
 		}
@@ -50,24 +45,87 @@ pub fn generate_certs(certificate_configs: Vec<CertificateConfig>) -> Result<()>
 	Ok(())
 }
 
-pub async fn background_certs_task(
-	certificates: Vec<CertificateConfig>,
-	task_interval: TaskInterval,
-) -> Result<()> {
-	// only acme certificates need to be renewed
-	let certificates = certificates
-		.into_iter()
-		.filter(|cert| cert.cert_type == CertificateType::Acme)
-		.collect::<Vec<CertificateConfig>>();
+pub fn load_tls_store(certificate_configs: &Vec<CertificateConfig>) -> Result<TlsStore> {
+	let mut tls_certs = HashMap::new();
 
-	loop {
-		info!("certificates: {}", certificates.len());
+	for config in certificate_configs {
+		if config.cert_type != CertificateType::None {
+			let (key_path, cert_path) = certificate_paths(&config.host, &config.cert_dir)?;
 
-		// for certificate in &certificates {
-		// }
+			let has_tls_files = check_file_exists(&key_path) && check_file_exists(&cert_path);
 
-		time::sleep(Duration::from_secs(*task_interval)).await;
+			// We only show a warning so its easier to debug once its running,
+			// but we are not stopping any traffic.
+			if !has_tls_files {
+				warn!("Certificate files not found for host `{}` but is expected", &config.host);
+			}
+
+			let cert_bytes = read_file(&cert_path)?;
+			let cert = tls::x509::X509::from_pem(&cert_bytes)
+				.map_err(|e| Error::Certificate(format!("Failed to parse certificate: {}", e)))?;
+
+			let key_bytes = read_file(&key_path)?;
+			let key = tls::pkey::PKey::private_key_from_pem(&key_bytes)
+				.map_err(|e| Error::Certificate(format!("Failed to parse private key: {}", e)))?;
+
+			tls_certs.insert(
+				config.host.clone(),
+				TlsMaterial {
+					cert,
+					key,
+				},
+			);
+		}
 	}
 
-	Ok(())
+	let tls_store: TlsStore = Arc::new(ArcSwap::from_pointee(tls_certs));
+
+	Ok(tls_store)
+}
+
+pub fn certificate_paths(host: &Host, cert_dir: &CertDir) -> Result<(KeyPath, CertPath)> {
+	let cert_filename = format!("{}.pem", host);
+	let key_filename = format!("{}.key", host);
+
+	let key_path = safe_path(cert_dir, &key_filename)?;
+	let cert_path = safe_path(cert_dir, &cert_filename)?;
+
+	Ok((key_path, cert_path))
+}
+
+pub struct CertBackgroundRenewal {
+	pub certificate_configs: Vec<CertificateConfig>,
+	pub task_interval: TaskInterval,
+	pub tls_store: TlsStore,
+}
+
+impl CertBackgroundRenewal {
+	pub fn new(
+		certificate_configs: Vec<CertificateConfig>,
+		task_interval: TaskInterval,
+		tls_store: TlsStore,
+	) -> Self {
+		Self {
+			certificate_configs,
+			task_interval,
+			tls_store,
+		}
+	}
+}
+
+#[async_trait]
+impl BackgroundService for CertBackgroundRenewal {
+	async fn start(&self, mut shutdown: ShutdownWatch) {
+		loop {
+			// TODO: couple things we will do in this background task
+			// - renew a certificate if its needed, and update the tls_store with the new certificate data
+			// - check if the dns has its text entry so we can start the process of generating certificates for that domein
+			//
+
+			tokio::select! {
+				_ = tokio::time::sleep(Duration::from_secs(*self.task_interval)) => {}
+				_ = shutdown.changed() => break,
+			}
+		}
+	}
 }

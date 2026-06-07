@@ -8,10 +8,10 @@ pub fn write_file(file_path: SafePath, content: &[u8]) -> Result<()> {
 	// foxguard: ignore[rs/no-path-traversal]
 	// validated with SafePath
 	let path = Path::new(file_path.as_str());
-	if let Some(parent) = path.parent() {
-		if !parent.exists() {
-			return Err(Error::FileSystem(format!("Parent directory {:?} does not exist", parent)));
-		}
+	if let Some(parent) = path.parent()
+		&& !parent.exists()
+	{
+		return Err(Error::FileSystem(format!("Parent directory {:?} does not exist", parent)));
 	}
 
 	fs::write(file_path.as_str(), content)
@@ -30,9 +30,7 @@ pub fn read_file(file_path: &SafePath) -> Result<Vec<u8>> {
 pub fn check_file_exists(file_path: &SafePath) -> bool {
 	// foxguard: ignore[rs/no-path-traversal]
 	// validated with SafePath
-	let exists = Path::new(file_path.as_str()).exists();
-
-	exists
+	Path::new(file_path.as_str()).exists()
 }
 
 /// Constructs a safe path by joining `base` and `file_path` and normalizing it.

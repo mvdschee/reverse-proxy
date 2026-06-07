@@ -1,4 +1,5 @@
-use crate::core::models::routes::Host;
+use crate::core::models::{filesystem::SafePath, routes::Host};
+use arc_swap::ArcSwap;
 use pingora::tls::{
 	pkey::{PKey, Private},
 	x509::X509,
@@ -31,7 +32,10 @@ pub struct TlsMaterial {
 	pub key: PKey<Private>,
 }
 
-pub type TlsCerts = Arc<HashMap<Host, TlsMaterial>>;
+pub type KeyPath = SafePath;
+pub type CertPath = SafePath;
+
+pub type TlsStore = Arc<ArcSwap<HashMap<Host, TlsMaterial>>>;
 
 // --- EMAIL ---
 #[derive(Debug, Clone, Deserialize)]

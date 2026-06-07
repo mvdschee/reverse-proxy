@@ -166,3 +166,10 @@ I'll be upfront on every public project about what was done with AI. For this on
 - Cleanup of the README and other prose
 - Talking through code-level solutions
 - Generating the Docker image scaffolding from a spec
+
+# TODO:
+
+- finish create_acme_dns_challenge
+- create a dns entry checker for the background task
+- generate a staging certificate with instance_acme
+- wire up the full flow in CertBackgroundRenewal

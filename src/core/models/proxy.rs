@@ -13,13 +13,10 @@ pub struct ProxyRoute {
 	pub host: Host,
 	pub upstream: Upstream,
 	pub tls: ProxyTls,
-	pub cert_path: SafePath,
-	pub key_path: SafePath,
 }
 
 #[derive(Debug, Clone)]
 pub struct ProxyConfig {
-	pub cert_dir: CertDir,
 	pub http_port: ProxyPort,
 	pub https_port: ProxyPort,
 	pub input_address: ProxyInputAddress,

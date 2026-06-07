@@ -1,21 +1,22 @@
 use crate::{
 	Error, Result,
 	core::{
-		handlers::filesystem::read_file,
+		handlers::{certs::CertBackgroundRenewal, filesystem::read_file},
 		models::{
-			certs::{TlsCerts, TlsMaterial},
+			certs::{TlsMaterial, TlsStore},
 			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap},
 		},
 	},
 	error,
 };
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use http::header;
 use pingora::{
 	ErrorType,
 	http::ResponseHeader,
 	listeners::{TlsAccept, tls::TlsSettings},
-	prelude::{Error as PingoraError, HttpPeer, Result as PingoraResult},
+	prelude::{Error as PingoraError, HttpPeer, Result as PingoraResult, background_service},
 	proxy::{ProxyHttp, Session, http_proxy_service},
 	server::{Server, configuration::ServerConf},
 	services::Service,
@@ -23,7 +24,12 @@ use pingora::{
 };
 use std::{collections::HashMap, sync::Arc};
 
-pub fn run_proxy(proxy_config: ProxyConfig, routes: Vec<ProxyRoute>) -> Result<()> {
+pub fn run_proxy(
+	proxy_config: ProxyConfig,
+	routes: Vec<ProxyRoute>,
+	tls_store: TlsStore,
+	renewal: CertBackgroundRenewal,
+) -> Result<()> {
 	let mut server = Server::new(None).map_err(|e| Error::Proxy(e.to_string()))?;
 
 	server.bootstrap();
@@ -31,34 +37,13 @@ pub fn run_proxy(proxy_config: ProxyConfig, routes: Vec<ProxyRoute>) -> Result<(
 	let server_conf = server.configuration.clone();
 	let http_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.http_port);
 	let https_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.https_port);
-
 	let mut routes_map = HashMap::new();
-	let mut tls_certs = HashMap::new();
 
 	for route in routes {
-		if *route.tls {
-			let cert_bytes = read_file(&route.cert_path)?;
-			let cert = tls::x509::X509::from_pem(&cert_bytes)
-				.map_err(|e| Error::Certificate(format!("Failed to parse certificate: {}", e)))?;
-
-			let key_bytes = read_file(&route.key_path)?;
-			let key = tls::pkey::PKey::private_key_from_pem(&key_bytes)
-				.map_err(|e| Error::Certificate(format!("Failed to parse private key: {}", e)))?;
-
-			tls_certs.insert(
-				route.host.clone(),
-				TlsMaterial {
-					cert,
-					key,
-				},
-			);
-		}
-
 		routes_map.insert(route.host.clone(), route);
 	}
 
 	let routes_map = Arc::new(routes_map);
-	let tls_certs = Arc::new(tls_certs);
 
 	// plain proxies with redirect
 	let plain_service =
@@ -66,9 +51,11 @@ pub fn run_proxy(proxy_config: ProxyConfig, routes: Vec<ProxyRoute>) -> Result<(
 	server.add_service(plain_service);
 
 	// tls proxies
-	let tls_service =
-		tls_routes_service(server_conf, https_addr.clone(), routes_map.clone(), tls_certs)?;
+	let tls_service = tls_routes_service(server_conf, https_addr, routes_map, tls_store)?;
 	server.add_service(tls_service);
+
+	// background cert services
+	server.add_service(background_service("cert-renewal", renewal));
 
 	server.run_forever();
 }
@@ -77,14 +64,14 @@ pub fn tls_routes_service(
 	server_conf: Arc<ServerConf>,
 	listen_addr: String,
 	routes_map: ProxyRouteMap,
-	tls_certs: TlsCerts,
+	tls_store: TlsStore,
 ) -> Result<impl Service> {
 	let proxy_app = ProxyToUpstream::new(routes_map.clone(), false);
 
 	let mut service = http_proxy_service(&server_conf, proxy_app);
 
-	let sni_resolver = SniResolver::new(tls_certs);
-	let callback = Box::new(sni_resolver);
+	let cert_resolver = CertResolver::new(tls_store);
+	let callback = Box::new(cert_resolver);
 	let tls_settings =
 		TlsSettings::with_callbacks(callback).map_err(|e| Error::Proxy(e.to_string()))?;
 	service.add_tls_with_settings(&listen_addr, None, tls_settings);
@@ -186,20 +173,20 @@ fn host_from_session(session: &Session) -> Option<&str> {
 	session.get_header(header::HOST).and_then(|h| h.to_str().ok())
 }
 
-struct SniResolver {
-	certs: TlsCerts,
+struct CertResolver {
+	tls_store: TlsStore,
 }
 
-impl SniResolver {
-	fn new(tls_certs: TlsCerts) -> Self {
+impl CertResolver {
+	fn new(tls_store: TlsStore) -> Self {
 		Self {
-			certs: tls_certs,
+			tls_store,
 		}
 	}
 }
 
 #[async_trait]
-impl TlsAccept for SniResolver {
+impl TlsAccept for CertResolver {
 	async fn certificate_callback(&self, ssl: &mut ssl::SslRef) -> () {
 		let sni_provided = ssl.servername(ssl::NameType::HOST_NAME).map(str::to_owned);
 
@@ -208,10 +195,12 @@ impl TlsAccept for SniResolver {
 			return;
 		};
 
+		let certs = self.tls_store.load();
+
 		let Some(TlsMaterial {
 			cert,
 			key,
-		}) = self.certs.get(sni_provided.as_str())
+		}) = certs.get(sni_provided.as_str())
 		else {
 			error!("No certificate found for SNI: {}", sni_provided);
 			return;
