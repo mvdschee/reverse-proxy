@@ -24,7 +24,7 @@ use rcgen::{CertifiedKey, generate_simple_self_signed};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::time;
 
-pub fn create_initial_certs(certificate_configs: &Vec<CertificateConfig>) -> Result<()> {
+pub fn create_self_signed_certs(certificate_configs: &Vec<CertificateConfig>) -> Result<()> {
 	for config in certificate_configs {
 		match config.cert_type {
 			CertificateType::SelfSigned => {
@@ -33,12 +33,7 @@ pub fn create_initial_certs(certificate_configs: &Vec<CertificateConfig>) -> Res
 				// for selfsigned we will create the certs here right away
 				create_self_signed_certificate_files(config);
 			},
-			CertificateType::Acme => {
-				// we do not generate any certs here that is for the backend process,
-				// we are only displaying the DNS entry that needs to be included to make sure you are able to get a cert
-				create_acme_dns_challenge(config);
-			},
-			CertificateType::None => {},
+			_ => {},
 		}
 	}
 
@@ -121,6 +116,7 @@ impl BackgroundService for CertBackgroundRenewal {
 			// - renew a certificate if its needed, and update the tls_store with the new certificate data
 			// - check if the dns has its text entry so we can start the process of generating certificates for that domein
 			//
+			info!("background thing");
 
 			tokio::select! {
 				_ = tokio::time::sleep(Duration::from_secs(*self.task_interval)) => {}

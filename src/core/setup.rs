@@ -3,7 +3,7 @@ use crate::{
 	core::{
 		handlers::{
 			certs::{
-				CertBackgroundRenewal, certificate_paths, create_initial_certs, load_tls_store,
+				CertBackgroundRenewal, certificate_paths, create_self_signed_certs, load_tls_store,
 			},
 			filesystem::{check_file_exists, safe_path},
 			proxy::run_proxy,
@@ -75,7 +75,7 @@ impl HandleCertificates {
 	}
 
 	pub fn run(self) -> Result<(TlsStore, CertBackgroundRenewal)> {
-		create_initial_certs(&self.certificate_configs)?;
+		create_self_signed_certs(&self.certificate_configs)?;
 
 		let store = load_tls_store(&self.certificate_configs)?;
 		let renewal = CertBackgroundRenewal::new(

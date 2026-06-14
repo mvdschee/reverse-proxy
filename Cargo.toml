@@ -29,7 +29,12 @@ arc-swap = "1.9.1"
 # used Ring as backend for default
 rcgen = { version = "0.14.8", features = ["default"] }
 # match the backed from rcgen
-instant-acme = { version = "0.8.5", features = ["rcgen"] }
+instant-acme = { version = "0.8.5", default-features = false, features = [
+   "ring",
+   "rcgen",
+   "hyper-rustls",
+] }
+
 
 # TOML
 toml = "1.1.2"
@@ -42,5 +47,5 @@ thiserror = "2.0.18"
 chrono = { version = "0.4.45", features = ["serde"] }
 
 # HTTP
-http = "1.4.1"
+http = "1.4.2"
 pingora = { version = "0.8.1", features = ["proxy", "boringssl"] }
