@@ -4,7 +4,7 @@ use crate::{
 		handlers::filesystem::{check_file_exists, read_file, safe_path, write_file},
 		models::{
 			certs::{
-				CertDir, CertPath, CertificateConfig, CertificateType, KeyPath, TlsMaterial,
+				CertDir, CertPath, CertificateConfig, CertificateType, Email, KeyPath, TlsMaterial,
 				TlsStore,
 			},
 			routes::Host,
@@ -13,7 +13,8 @@ use crate::{
 	},
 	info,
 	services::certs::{
-		acme::create_acme_dns_challenge, self_signed::create_self_signed_certificate_files,
+		acme::{create_account, create_acme_dns_challenge},
+		self_signed::create_self_signed_certificate_files,
 	},
 	warn,
 };
@@ -92,6 +93,7 @@ pub struct CertBackgroundRenewal {
 	pub certificate_configs: Vec<CertificateConfig>,
 	pub task_interval: TaskInterval,
 	pub tls_store: TlsStore,
+	pub email: Email,
 }
 
 impl CertBackgroundRenewal {
@@ -99,11 +101,13 @@ impl CertBackgroundRenewal {
 		certificate_configs: Vec<CertificateConfig>,
 		task_interval: TaskInterval,
 		tls_store: TlsStore,
+		email: Email,
 	) -> Self {
 		Self {
 			certificate_configs,
 			task_interval,
 			tls_store,
+			email,
 		}
 	}
 }
@@ -111,11 +115,33 @@ impl CertBackgroundRenewal {
 #[async_trait]
 impl BackgroundService for CertBackgroundRenewal {
 	async fn start(&self, mut shutdown: ShutdownWatch) {
+		// TODO what to do when creating an account fails (acme endpoints is 500 etc..)
+		let account = create_account(&self.email).await;
+
+		let configs = self
+			.certificate_configs
+			.clone()
+			.into_iter()
+			.filter(|c| c.cert_type == CertificateType::Acme);
+
 		loop {
-			// TODO: couple things we will do in this background task
-			// - renew a certificate if its needed, and update the tls_store with the new certificate data
-			// - check if the dns has its text entry so we can start the process of generating certificates for that domein
-			//
+			for config in configs.clone() {
+				// check if we have an order open or need to create a new one
+				//
+				// if so verify the dns records with cloudflare
+				//
+				// if its set allow the order to be proccessed
+				//
+				// write to the file system
+				//
+				// swap the file content in the store with the new values if any
+				//
+				//
+				// note: we write to the file system so we can pick the files up and load them in the store when we restart or bootup
+				// this so we don't have to deal here with loading if the files are there (so we only have to check here if the order is invalid or valid and swap when its time)
+				// so on boot we load all the tls certs from self-signed / acme and check in this flow it its valid or not and fix it with a swap.
+			}
+
 			info!("background thing");
 
 			tokio::select! {

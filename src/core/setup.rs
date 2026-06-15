@@ -49,6 +49,7 @@ impl HandleFileSystem {
 pub struct HandleCertificates {
 	certificate_configs: Vec<CertificateConfig>,
 	task_interval: TaskInterval,
+	email: Email,
 }
 
 impl HandleCertificates {
@@ -63,7 +64,6 @@ impl HandleCertificates {
 			.map(|route| CertificateConfig {
 				host: route.host.clone(),
 				cert_dir: cert_dir.clone(),
-				email: email.clone(),
 				cert_type: route.cert_type.clone(),
 			})
 			.collect::<Vec<CertificateConfig>>();
@@ -71,6 +71,7 @@ impl HandleCertificates {
 		Self {
 			certificate_configs,
 			task_interval,
+			email,
 		}
 	}
 
@@ -82,6 +83,7 @@ impl HandleCertificates {
 			self.certificate_configs.clone(),
 			self.task_interval.clone(),
 			store.clone(),
+			self.email.clone(),
 		);
 
 		Ok((store, renewal))

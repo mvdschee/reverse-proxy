@@ -1,5 +1,5 @@
 [acme]
-email       = "max@example.com"
+email       = "max@example.com" # use a real email this will fail the even on local testing
 
 [[routes]]
 host        = "git.example.com"

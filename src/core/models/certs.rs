@@ -23,7 +23,6 @@ pub enum CertificateType {
 pub struct CertificateConfig {
 	pub host: Host,
 	pub cert_dir: CertDir,
-	pub email: Email,
 	pub cert_type: CertificateType,
 }
 

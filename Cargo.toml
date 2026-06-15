@@ -34,6 +34,7 @@ instant-acme = { version = "0.8.5", default-features = false, features = [
    "rcgen",
    "hyper-rustls",
 ] }
+rustls = "0.23.40"
 
 
 # TOML
@@ -41,6 +42,8 @@ toml = "1.1.2"
 
 # Json
 serde = { version = "1.0.228", features = ["derive"] }
+# only needed for testing
+# serde_json = { version = "1.0.150" }
 
 # Others
 thiserror = "2.0.18"
