@@ -16,8 +16,8 @@ const HTTP_PORT_ENV: &str = "HTTP_PORT";
 const HTTPS_PORT_ENV: &str = "HTTPS_PORT";
 
 const CERT_DIR_DEFAULT: &str = ".certs/";
-const HTTP_PORT_DEFAULT: u16 = 880;
-const HTTPS_PORT_DEFAULT: u16 = 8443;
+const HTTP_PORT_DEFAULT: u16 = 80;
+const HTTPS_PORT_DEFAULT: u16 = 443;
 const INPUT_ADDRESS: &str = "0.0.0.0";
 
 // in seconds
