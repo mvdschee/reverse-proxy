@@ -20,8 +20,8 @@ const HTTP_PORT_DEFAULT: u16 = 80;
 const HTTPS_PORT_DEFAULT: u16 = 443;
 const INPUT_ADDRESS: &str = "0.0.0.0";
 
-// in seconds
-const CERT_BACKGROUND_TASK_INTERVAL: u64 = 120;
+/// in seconds
+const CERT_BACKGROUND_TASK_INTERVAL: u64 = 3600; // 1 hour
 
 #[derive(Debug, Clone)]
 pub struct Config {

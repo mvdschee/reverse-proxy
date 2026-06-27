@@ -2,3 +2,4 @@ target/
 .env
 .DS_Store
 .certs/
+example/local.toml

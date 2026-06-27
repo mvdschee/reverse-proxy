@@ -11,15 +11,16 @@ use crate::{
 			tasks::TaskInterval,
 		},
 	},
-	info,
+	error, info,
 	services::certs::{
-		acme::{create_account, create_acme_dns_challenge},
+		acme::{create_account, create_order},
 		self_signed::create_self_signed_certificate_files,
 	},
 	warn,
 };
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
+use instant_acme::{Identifier, NewOrder, OrderStatus};
 use pingora::{server::ShutdownWatch, services::background::BackgroundService, tls};
 use rcgen::{CertifiedKey, generate_simple_self_signed};
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -53,7 +54,8 @@ pub fn load_tls_store(certificate_configs: &Vec<CertificateConfig>) -> Result<Tl
 			// We only show a warning so its easier to debug once its running,
 			// but we are not stopping any traffic.
 			if !has_tls_files {
-				warn!("Certificate files not found for host `{}` but is expected", &config.host);
+				warn!("Certificate files not found for host '{}' but is expected", &config.host);
+				continue;
 			}
 
 			let cert_bytes = read_file(&cert_path)?;
@@ -114,9 +116,14 @@ impl CertBackgroundRenewal {
 
 #[async_trait]
 impl BackgroundService for CertBackgroundRenewal {
+	// start should never return this will stop the background task,
+	// this means we have to be a little more verbose with our error handeling.
+	// TLDR; just continue on any error :D, problem for the next loop :')
 	async fn start(&self, mut shutdown: ShutdownWatch) {
 		// TODO what to do when creating an account fails (acme endpoints is 500 etc..)
-		let account = create_account(&self.email).await;
+		let account_result = create_account(&self.email)
+			.await
+			.map_err(|e| Error::Certificate(format!("Failed with create_account: {}", e)));
 
 		let configs = self
 			.certificate_configs
@@ -125,8 +132,33 @@ impl BackgroundService for CertBackgroundRenewal {
 			.filter(|c| c.cert_type == CertificateType::Acme);
 
 		loop {
+			let (account, credentials) = match account_result {
+				Ok(ref pair) => pair,
+				Err(ref err) => {
+					error!("{err:?}");
+					continue;
+				},
+			};
+
 			for config in configs.clone() {
-				// check if we have an order open or need to create a new one
+				let order_result = create_order(&account, &config.host).await;
+
+				let mut order = match order_result {
+					Ok(order) => order,
+					Err(err) => {
+						error!("{err:?}");
+						continue;
+					},
+				};
+
+				let state = order.state();
+				info!("order state: {:#?}", state);
+
+				if !matches!(state.status, OrderStatus::Pending) {
+					warn!("Skipping non-Pending order: {:?}", state.status);
+					continue;
+				}
+
 				//
 				// if so verify the dns records with cloudflare
 				//
