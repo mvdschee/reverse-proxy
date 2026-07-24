@@ -34,7 +34,7 @@ So I wrote my own (by hand, old-school, no AI writing the code) to learn the int
 
 ## Quick start
 
-The image is published to GHCR as `ghcr.io/mvdschee/reverse-proxy`. Two things to provide:
+The image is published to Docker Hub as `maxvanderschee/reverse-proxy` (also available on GHCR as `ghcr.io/mvdschee/reverse-proxy`). Two things to provide:
 
 1. A `config.toml` describing your routes.
 2. A `docker-compose.yml` that mounts it.
@@ -61,7 +61,7 @@ cert_type = "self_signed"
 ```yaml
 services:
    proxy:
-      image: ghcr.io/mvdschee/reverse-proxy:latest
+      image: maxvanderschee/reverse-proxy:latest # or ghcr.io/mvdschee/reverse-proxy:latest
       restart: unless-stopped
       ports:
          - "80:8080"
