@@ -69,7 +69,7 @@ jobs:
          # job below stitches the digests into one multi-arch manifest.
          - name: Build and push by digest
            id: build
-           uses: docker/build-push-action@v7.3.2
+           uses: docker/build-push-action@v7.3.0
            with:
               context: .
               file: .docker/Dockerfile
