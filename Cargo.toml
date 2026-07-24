@@ -1,6 +1,6 @@
 [package]
 name = "proxy"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [profile.dev]
@@ -19,8 +19,8 @@ unused = { level = "allow", priority = -1 }
 
 [dependencies]
 # Async
-async-trait = "0.1.89"
-tokio = { version = "1.52.3", features = ["full"] }
+async-trait = "0.1.91"
+tokio = { version = "1.53.1", features = ["full"] }
 
 # Certs
 # used Ring as backend for default
@@ -29,15 +29,15 @@ rcgen = { version = "0.14.8", features = ["default"] }
 instant-acme = { version = "0.8.5", features = ["rcgen"] }
 
 # TOML
-toml = "1.1.2"
+toml = "1.1.3"
 
 # Json
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive"] }
 
 # Others
-thiserror = "2.0.18"
-chrono = { version = "0.4.44", features = ["serde"] }
+thiserror = "2.0.19"
+chrono = { version = "0.4.45", features = ["serde"] }
 
 # HTTP
-http = "1.4.1"
-pingora = { version = "0.8.0", features = ["proxy", "boringssl"] }
+http = "1.4.2"
+pingora = { version = "0.8.1", features = ["proxy", "boringssl"] }
