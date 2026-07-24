@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Builder: hardened Alpine + dev toolchain
-FROM dhi.io/alpine-base:3.23-alpine3.23-dev AS builder
+FROM dhi.io/alpine-base:3.24-alpine3.24-dev AS builder
 
 USER root
 
@@ -24,7 +24,7 @@ RUN apk add --no-cache \
     pkgconf \
     ca-certificates
 
-ARG RUST_VERSION=1.90.0
+ARG RUST_VERSION=1.96.0
 ARG TARGETARCH
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -99,7 +99,7 @@ EOF
 
 # Runtime: minimal hardened Alpine. Ships only busybox + musl + ca-certs.
 # DHI images run as the 'nonroot' user (uid/gid 65532) by default.
-FROM dhi.io/alpine-base:3.23
+FROM dhi.io/alpine-base:3.24
 
 # Lay down the binary and pre-create mount-point directories with the
 # correct ownership. Named volumes inherit this ownership on first use,
