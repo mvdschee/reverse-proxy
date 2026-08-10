@@ -25,6 +25,9 @@ pub enum Error {
 	#[error("proxy error: {0}")]
 	Proxy(String),
 
+	#[error("dns error: {0}")]
+	Dns(String),
+
 	#[error("config error: {0}")]
 	Config(String),
 
