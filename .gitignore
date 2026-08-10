@@ -2,4 +2,6 @@ target/
 .env
 .DS_Store
 .certs/
+
+# used to locally test with real email (acme don't allow fake email)
 example/local.toml
