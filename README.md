@@ -102,7 +102,7 @@ The full schema lives in [`example/example.toml`](example/example.toml). The fie
 | `acme.email`         | yes      | Contact email for Let's Encrypt (used once ACME lands; required today even if every route is `none`). |
 | `routes[].host`      | yes      | The `Host` header to match (e.g. `app.example.com`).                                                  |
 | `routes[].upstream`  | yes      | `host:port` to forward to. Use `host.docker.internal:<port>` to reach the host machine from Docker.   |
-| `routes[].cert_type` | no       | `self_signed` (default works on boot), `acme` (WIP), or `none` (HTTP only). Defaults to `acme`.       |
+| `routes[].cert_type` | no       | `self_signed` (default works on boot), `acme` (WIP), or `none` (HTTP only). Defaults to `none`.       |
 
 ## How it works
 

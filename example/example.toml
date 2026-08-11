@@ -4,9 +4,9 @@ email       = "max@example.com" # use a real email this will fail the even on lo
 [[routes]]
 host        = "git.example.com"
 upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
-cert_type   = "self_signed"      # default is "acme"
+cert_type   = "self_signed"      # default is "none"
 
 [[routes]]
 host        = "test.example.com"
 upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
-cert_type   = "none"             # default is "acme"
+cert_type   = "none"             # default is "none"

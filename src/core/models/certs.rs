@@ -15,8 +15,8 @@ use std::sync::Arc;
 #[serde(rename_all = "snake_case")]
 pub enum CertificateType {
 	SelfSigned,
-	#[default]
 	Acme,
+	#[default]
 	None,
 }
 
