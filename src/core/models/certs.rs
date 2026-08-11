@@ -1,4 +1,7 @@
-use crate::core::models::{filesystem::SafePath, routes::Host};
+use crate::{
+	core::models::{filesystem::SafePath, routes::Host},
+	string_newtype,
+};
 use arc_swap::ArcSwap;
 use pingora::tls::{
 	pkey::{PKey, Private},
@@ -6,8 +9,6 @@ use pingora::tls::{
 };
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fmt;
-use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
@@ -37,49 +38,7 @@ pub type CertPath = SafePath;
 pub type TlsStore = Arc<ArcSwap<HashMap<Host, TlsMaterial>>>;
 
 // --- EMAIL ---
-#[derive(Debug, Clone, Deserialize)]
-pub struct Email(String);
-
-impl Deref for Email {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for Email {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for Email {
-	fn from(s: String) -> Self {
-		Email(s)
-	}
-}
+string_newtype!(Email, derive(Deserialize));
 
 // --- CERT_DIR ---
-#[derive(Debug, Clone, Deserialize)]
-pub struct CertDir(String);
-
-impl Deref for CertDir {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for CertDir {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for CertDir {
-	fn from(s: String) -> Self {
-		CertDir(s)
-	}
-}
+string_newtype!(CertDir, derive(Deserialize));

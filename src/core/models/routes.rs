@@ -1,6 +1,8 @@
-use crate::core::models::certs::CertificateType;
+use crate::{
+	core::models::{certs::CertificateType, dns::ProviderCredentails},
+	string_newtype,
+};
 use serde::Deserialize;
-use std::{fmt, ops::Deref};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Route {
@@ -8,19 +10,11 @@ pub struct Route {
 	pub upstream: Upstream,
 	#[serde(default)]
 	pub cert_type: CertificateType,
+	pub dns_provider: Option<ProviderCredentails>,
 }
 
 // --- HOST ---
-#[derive(Debug, Clone, Deserialize, Hash, Eq, PartialEq)]
-pub struct Host(String);
-
-impl Deref for Host {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
+string_newtype!(Host, derive(Deserialize, Hash, Eq, PartialEq));
 
 impl std::borrow::Borrow<str> for Host {
 	fn borrow(&self) -> &str {
@@ -28,38 +22,5 @@ impl std::borrow::Borrow<str> for Host {
 	}
 }
 
-impl fmt::Display for Host {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for Host {
-	fn from(s: String) -> Self {
-		Host(s)
-	}
-}
-
 // --- UPSTREAM ---
-#[derive(Debug, Clone, Deserialize)]
-pub struct Upstream(String);
-
-impl Deref for Upstream {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for Upstream {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for Upstream {
-	fn from(s: String) -> Self {
-		Upstream(s)
-	}
-}
+string_newtype!(Upstream, derive(Deserialize));

@@ -1,26 +1,28 @@
+use crate::string_newtype;
 use serde::Deserialize;
-use std::{fmt, ops::Deref};
 
-// --- EMAIL ---
+// --- DNS Record ---
+string_newtype!(Record, derive(Deserialize));
+
+// --- DNS Provider credentials ---
+
 #[derive(Debug, Clone, Deserialize)]
-pub struct Record(String);
-
-impl Deref for Record {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
+#[serde(rename_all = "snake_case")]
+pub enum ProviderCredentails {
+	Cloudflare(CloudflareProvider),
 }
 
-impl fmt::Display for Record {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
+// --- add here any other providers credentials ---
+
+// --- CloudFlare ---
+#[derive(Debug, Clone, Deserialize)]
+pub struct CloudflareProvider {
+	pub zone_id: ZoneId,
+	pub api_token: ApiToken,
 }
 
-impl From<String> for Record {
-	fn from(s: String) -> Self {
-		Record(s)
-	}
-}
+// Zone ID
+string_newtype!(ZoneId, derive(Deserialize));
+
+// API token
+string_newtype!(ApiToken, derive(Deserialize));
