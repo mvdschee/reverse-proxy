@@ -19,11 +19,11 @@ unused = { level = "allow", priority = -1 }
 
 [dependencies]
 # Async
-async-trait = "0.1.91"
+async-trait = "0.1.92"
 tokio = { version = "1.53.1", features = ["full"] }
 
 # Arc
-arc-swap = "1.9.1"
+arc-swap = "1.9.2"
 
 # Certs
 # used Ring as backend for default
@@ -34,19 +34,22 @@ instant-acme = { version = "0.8.5", default-features = false, features = [
    "rcgen",
    "hyper-rustls",
 ] }
-rustls = "0.23.41"
+rustls = "0.23.43"
 
 
 # TOML
-toml = "1.1.3"
+toml = "1.1.4"
 
 # Json
 serde = { version = "1.0.229", features = ["derive"] }
 
 # Others
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 chrono = { version = "0.4.45", features = ["serde"] }
 
 # HTTP
-http = "1.4.2"
+http = "1.5.0"
 pingora = { version = "0.8.1", features = ["proxy", "boringssl"] }
+
+# HTTP Client
+reqwest = "0.13.4"

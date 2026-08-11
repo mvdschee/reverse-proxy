@@ -1,6 +1,8 @@
-use crate::core::models::dns::Record;
+use crate::core::models::dns::{CloudflareProvider, Record};
 use crate::core::models::routes::Host;
 use crate::{Error, Result};
+
+mod cloudflare;
 
 trait DnsProvider: Send + Sync + 'static {
 	/// Only returns single record
@@ -11,5 +13,3 @@ trait DnsProvider: Send + Sync + 'static {
 	/// will return the set record (if returned otherwise fake it)
 	fn update_challenge_record(&self, host: Host) -> Result<Record>;
 }
-
-pub struct CloudflareDns {}
