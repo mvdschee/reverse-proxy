@@ -13,6 +13,9 @@ pub enum Error {
 	#[error("IO error: {0}")]
 	Io(#[from] std::io::Error),
 
+	#[error("request error: {0}")]
+	Request(reqwest::Error),
+
 	#[error("file system error: {0}")]
 	FileSystem(String),
 
@@ -33,4 +36,10 @@ pub enum Error {
 
 	#[error("unknown error")]
 	Unknown,
+}
+
+impl From<reqwest::Error> for Error {
+	fn from(err: reqwest::Error) -> Self {
+		Error::Request(err)
+	}
 }

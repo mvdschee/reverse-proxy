@@ -65,6 +65,7 @@ impl HandleCertificates {
 				host: route.host.clone(),
 				cert_dir: cert_dir.clone(),
 				cert_type: route.cert_type.clone(),
+				provider_config: route.dns_provider.clone(),
 			})
 			.collect::<Vec<CertificateConfig>>();
 

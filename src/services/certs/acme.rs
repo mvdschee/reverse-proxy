@@ -10,6 +10,19 @@ use instant_acme::{
 };
 use rustls::crypto::CryptoProvider;
 
+// w
+pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
+	let account = Account::builder()
+		.map_err(|e| Error::Acme(e.to_string()))?
+		.from_credentials(credentials)
+		.await
+		.map_err(|e| Error::Acme(e.to_string()))?;
+
+	Ok(account)
+}
+
+// this one returns credentials, because we are going to save it to the file
+// for later usage to start the process with the same credentials
 pub async fn create_account(email: &Email) -> Result<(Account, AccountCredentials)> {
 	CryptoProvider::install_default(rustls::crypto::ring::default_provider());
 

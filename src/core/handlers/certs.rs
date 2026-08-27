@@ -7,14 +7,18 @@ use crate::{
 				CertDir, CertPath, CertificateConfig, CertificateType, Email, KeyPath, TlsMaterial,
 				TlsStore,
 			},
+			dns::{Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail},
 			routes::Host,
 			tasks::TaskInterval,
 		},
 	},
 	error, info,
-	services::certs::{
-		acme::{create_account, create_order},
-		self_signed::create_self_signed_certificate_files,
+	services::{
+		certs::{
+			acme::{create_account, create_order},
+			self_signed::create_self_signed_certificate_files,
+		},
+		http::create_client,
 	},
 	warn,
 };
@@ -120,6 +124,14 @@ impl BackgroundService for CertBackgroundRenewal {
 	// this means we have to be a little more verbose with our error handeling.
 	// TLDR; just continue on any error :D, problem for the next loop :')
 	async fn start(&self, mut shutdown: ShutdownWatch) {
+		let http_client = match create_client() {
+			Ok(client) => client,
+			Err(e) => {
+				error!("Can't start cert renewal loop: {}", e);
+				return;
+			},
+		};
+
 		// TODO what to do when creating an account fails (acme endpoints is 500 etc..)
 		let account_result = create_account(&self.email)
 			.await
@@ -143,6 +155,18 @@ impl BackgroundService for CertBackgroundRenewal {
 			for config in configs.clone() {
 				let order_result = create_order(&account, &config.host).await;
 
+				// if no DNS credentials are provided there is DNS validation.
+				// we should terminate early on.
+				let dns_service_config = match config.provider_config {
+					Some(config) => config,
+					None => {
+						warn!("No DNS credentials provided for {}", config.host);
+						continue;
+					},
+				};
+
+				let dns_service = get_dns_services(dns_service_config, "_acme-challenge.");
+
 				let mut order = match order_result {
 					Ok(order) => order,
 					Err(err) => {
@@ -154,16 +178,58 @@ impl BackgroundService for CertBackgroundRenewal {
 				let state = order.state();
 				info!("order state: {:#?}", state);
 
+				// TODO what does pending means? can we use this to gate the refresh on it. like this will tell us its time to refresh the dns record.
 				if !matches!(state.status, OrderStatus::Pending) {
 					warn!("Skipping non-Pending order: {:?}", state.status);
 					continue;
 				}
 
-				//
-				// if so verify the dns records with cloudflare
-				//
-				// if its set allow the order to be proccessed
-				//
+				// TODO dont verify the value go straigh to update we are going to get get_challenge_record once we have put it and use it as a input check before finalizing
+
+				// Pick the desired challenge type and prepare the response.
+
+				// let mut authorizations = order.authorizations();
+				// while let Some(result) = authorizations.next().await {
+				// 	let mut authz = result?;
+				// 	match authz.status {
+				// 		AuthorizationStatus::Pending => {},
+				// 		AuthorizationStatus::Valid => continue,
+				// 		_ => todo!(),
+				// 	}
+
+				// 	// We'll use the DNS challenges for this example, but you could
+				// 	// pick something else to use here.
+
+				// 	let mut challenge = authz
+				// 		.challenge(ChallengeType::Dns01)
+				// 		.ok_or_else(|| anyhow::anyhow!("no dns01 challenge found"))?;
+
+				// 	println!("Please set the following DNS record then press the Return key:");
+				// 	println!(
+				// 		"_acme-challenge.{} IN TXT {}",
+				// 		challenge.identifier(),
+				// 		challenge.key_authorization()?.dns_value()
+				// 	);
+				// 	io::stdin().read_line(&mut String::new())?;
+
+				// 	challenge.set_ready().await?;
+				// }
+
+				// // Exponentially back off until the order becomes ready or invalid.
+
+				// let status = order.poll_ready(&RetryPolicy::default()).await?;
+				// if status != OrderStatus::Ready {
+				// 	return Err(anyhow::anyhow!("unexpected order status: {status:?}"));
+				// }
+
+				// // Finalize the order and print certificate chain, private key and account credentials.
+
+				// let private_key_pem = order.finalize().await?;
+				// let cert_chain_pem = order.poll_certificate(&RetryPolicy::default()).await?;
+
+				// info!("certificate chain:\n\n{cert_chain_pem}");
+				// info!("private key:\n\n{private_key_pem}");
+
 				// write to the file system
 				//
 				// swap the file content in the store with the new values if any
@@ -181,5 +247,15 @@ impl BackgroundService for CertBackgroundRenewal {
 				_ = shutdown.changed() => break,
 			}
 		}
+	}
+}
+
+fn get_dns_services(config: ProviderCredentail, challenge_prefix: &str) -> impl DnsProvider {
+	match config {
+		ProviderCredentail::Cloudflare(config) => CloudflareProvider {
+			zone_id: config.zone_id,
+			api_token: config.api_token,
+			challenge_prefix: challenge_prefix.to_string(),
+		},
 	}
 }

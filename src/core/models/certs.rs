@@ -1,5 +1,5 @@
 use crate::{
-	core::models::{filesystem::SafePath, routes::Host},
+	core::models::{dns::ProviderCredentail, filesystem::SafePath, routes::Host},
 	string_newtype,
 };
 use arc_swap::ArcSwap;
@@ -25,6 +25,7 @@ pub struct CertificateConfig {
 	pub host: Host,
 	pub cert_dir: CertDir,
 	pub cert_type: CertificateType,
+	pub provider_config: Option<ProviderCredentail>,
 }
 
 pub struct TlsMaterial {
@@ -42,3 +43,6 @@ string_newtype!(Email, derive(Deserialize));
 
 // --- CERT_DIR ---
 string_newtype!(CertDir, derive(Deserialize));
+
+// --- CERT_ACCOUNT_PATH ---
+string_newtype!(CertAccountPath, derive(Deserialize));

@@ -1,5 +1,5 @@
 use crate::{
-	core::models::{certs::CertificateType, dns::ProviderCredentails},
+	core::models::{certs::CertificateType, dns::ProviderCredentail},
 	string_newtype,
 };
 use serde::Deserialize;
@@ -10,7 +10,7 @@ pub struct Route {
 	pub upstream: Upstream,
 	#[serde(default)]
 	pub cert_type: CertificateType,
-	pub dns_provider: Option<ProviderCredentails>,
+	pub dns_provider: Option<ProviderCredentail>,
 }
 
 // --- HOST ---
