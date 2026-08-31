@@ -8,8 +8,7 @@ use pingora::tls::{
 	x509::X509,
 };
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "snake_case")]

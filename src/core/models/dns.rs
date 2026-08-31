@@ -1,7 +1,6 @@
-use crate::config::ACME_CHALLENGE_PREFIX;
-use crate::core::models::routes::Host;
-use crate::string_newtype;
-use crate::{Error, Result};
+use crate::{
+	Error, Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, string_newtype,
+};
 use reqwest::Client;
 use serde::Deserialize;
 
