@@ -4,19 +4,25 @@ use crate::{
 		certs::{CertificateConfig, Email},
 		routes::Host,
 	},
+	info,
 };
 use instant_acme::{
 	Account, AccountCredentials, Identifier, LetsEncrypt, NewAccount, NewOrder, Order,
 };
 use rustls::crypto::CryptoProvider;
 
-// w
+pub fn init_account() {
+	CryptoProvider::install_default(rustls::crypto::ring::default_provider());
+}
+
 pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
 	let account = Account::builder()
 		.map_err(|e| Error::Acme(e.to_string()))?
 		.from_credentials(credentials)
 		.await
 		.map_err(|e| Error::Acme(e.to_string()))?;
+
+	info!("Reusing ACME account");
 
 	Ok(account)
 }
@@ -40,6 +46,8 @@ pub async fn create_account(email: &Email) -> Result<(Account, AccountCredential
 		)
 		.await
 		.map_err(|e| Error::Acme(e.to_string()))?;
+
+	info!("Created new ACME account");
 
 	Ok((account, credentials))
 }

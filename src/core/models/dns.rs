@@ -1,3 +1,4 @@
+use crate::config::ACME_CHALLENGE_PREFIX;
 use crate::core::models::routes::Host;
 use crate::string_newtype;
 use crate::{Error, Result};
@@ -12,6 +13,10 @@ pub trait DnsProvider: Send + Sync + 'static {
 	/// Single fuction to set and update
 	/// will return the set record (if returned otherwise fake it)
 	fn update_challenge_record(&self, host: &Host, value: &str) -> Result<Record>;
+}
+
+fn default_challenge_prefix() -> String {
+	ACME_CHALLENGE_PREFIX.to_string()
 }
 
 // --- DNS Record ---
@@ -34,6 +39,11 @@ pub enum ProviderCredentail {
 pub struct CloudflareProvider {
 	pub zone_id: ZoneId,
 	pub api_token: ApiToken,
+	// challenge_prefix is a default value from ACME,
+	// this can not be set or changed from the userside
+	// but its here to keep keep it as a single config
+	// per provider
+	#[serde(skip, default = "default_challenge_prefix")]
 	pub challenge_prefix: String,
 }
 

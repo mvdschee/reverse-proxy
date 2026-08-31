@@ -45,4 +45,4 @@ string_newtype!(Email, derive(Deserialize));
 string_newtype!(CertDir, derive(Deserialize));
 
 // --- CERT_ACCOUNT_PATH ---
-string_newtype!(CertAccountPath, derive(Deserialize));
+pub type CertAccountPath = SafePath;

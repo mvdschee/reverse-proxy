@@ -4,8 +4,8 @@ use crate::{
 		handlers::filesystem::{check_file_exists, read_file, safe_path, write_file},
 		models::{
 			certs::{
-				CertDir, CertPath, CertificateConfig, CertificateType, Email, KeyPath, TlsMaterial,
-				TlsStore,
+				CertAccountPath, CertDir, CertPath, CertificateConfig, CertificateType, Email,
+				KeyPath, TlsMaterial, TlsStore,
 			},
 			dns::{Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail},
 			routes::Host,
@@ -15,7 +15,7 @@ use crate::{
 	error, info,
 	services::{
 		certs::{
-			acme::{create_account, create_order},
+			acme::{create_account, create_order, init_account, load_account},
 			self_signed::create_self_signed_certificate_files,
 		},
 		http::create_client,
@@ -24,10 +24,10 @@ use crate::{
 };
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use instant_acme::{Identifier, NewOrder, OrderStatus};
+use instant_acme::{Account, AccountCredentials, Identifier, NewOrder, OrderStatus};
 use pingora::{server::ShutdownWatch, services::background::BackgroundService, tls};
 use rcgen::{CertifiedKey, generate_simple_self_signed};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs, sync::Arc, time::Duration};
 use tokio::time;
 
 pub fn create_self_signed_certs(certificate_configs: &Vec<CertificateConfig>) -> Result<()> {
@@ -97,6 +97,7 @@ pub fn certificate_paths(host: &Host, cert_dir: &CertDir) -> Result<(KeyPath, Ce
 
 pub struct CertBackgroundRenewal {
 	pub certificate_configs: Vec<CertificateConfig>,
+	pub cert_account_path: CertAccountPath,
 	pub task_interval: TaskInterval,
 	pub tls_store: TlsStore,
 	pub email: Email,
@@ -105,12 +106,14 @@ pub struct CertBackgroundRenewal {
 impl CertBackgroundRenewal {
 	pub fn new(
 		certificate_configs: Vec<CertificateConfig>,
+		cert_account_path: CertAccountPath,
 		task_interval: TaskInterval,
 		tls_store: TlsStore,
 		email: Email,
 	) -> Self {
 		Self {
 			certificate_configs,
+			cert_account_path,
 			task_interval,
 			tls_store,
 			email,
@@ -132,10 +135,13 @@ impl BackgroundService for CertBackgroundRenewal {
 			},
 		};
 
-		// TODO what to do when creating an account fails (acme endpoints is 500 etc..)
-		let account_result = create_account(&self.email)
-			.await
-			.map_err(|e| Error::Certificate(format!("Failed with create_account: {}", e)));
+		let account = match resolve_acme_account(&self.cert_account_path, &self.email).await {
+			Ok(account) => account,
+			Err(err) => {
+				error!("Failed to resolve ACME account: {err:?}");
+				return;
+			},
+		};
 
 		let configs = self
 			.certificate_configs
@@ -144,14 +150,6 @@ impl BackgroundService for CertBackgroundRenewal {
 			.filter(|c| c.cert_type == CertificateType::Acme);
 
 		loop {
-			let (account, credentials) = match account_result {
-				Ok(ref pair) => pair,
-				Err(ref err) => {
-					error!("{err:?}");
-					continue;
-				},
-			};
-
 			for config in configs.clone() {
 				let order_result = create_order(&account, &config.host).await;
 
@@ -165,7 +163,7 @@ impl BackgroundService for CertBackgroundRenewal {
 					},
 				};
 
-				let dns_service = get_dns_services(dns_service_config, "_acme-challenge.");
+				let dns_service = get_dns_services(dns_service_config);
 
 				let mut order = match order_result {
 					Ok(order) => order,
@@ -250,12 +248,39 @@ impl BackgroundService for CertBackgroundRenewal {
 	}
 }
 
-fn get_dns_services(config: ProviderCredentail, challenge_prefix: &str) -> impl DnsProvider {
+fn get_dns_services(config: ProviderCredentail) -> impl DnsProvider {
 	match config {
 		ProviderCredentail::Cloudflare(config) => CloudflareProvider {
 			zone_id: config.zone_id,
 			api_token: config.api_token,
-			challenge_prefix: challenge_prefix.to_string(),
+			challenge_prefix: config.challenge_prefix,
 		},
 	}
+}
+
+async fn resolve_acme_account(
+	cert_account_path: &CertAccountPath,
+	email: &Email,
+) -> Result<Account> {
+	// set crypto lib to load/create the account
+	init_account();
+
+	if let Ok(credentials) = get_acme_account(cert_account_path) {
+		return load_account(credentials).await;
+	}
+
+	let (account, credentials) = create_account(email).await?;
+	let content = serde_json::to_vec(&credentials)
+		.map_err(|e| Error::Acme(format!("Failed to serialize ACME account: {}", e)))?;
+	write_file(cert_account_path.clone(), &content)?;
+
+	Ok(account)
+}
+
+// any erorr one this part we will simply create a new account
+fn get_acme_account(cert_account_path: &CertAccountPath) -> Result<AccountCredentials> {
+	let raw_content = read_file(cert_account_path)?;
+
+	serde_json::from_slice(&raw_content)
+		.map_err(|e| Error::Acme(format!("Failed to parse ACME account: {}", e)))
 }

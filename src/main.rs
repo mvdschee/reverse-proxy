@@ -26,6 +26,7 @@ fn main() -> Result<()> {
 	// and spin up background tasks to refresh certificates
 	let cert_handler = HandleCertificates::new(
 		config.cert_dir.clone(),
+		config.cert_account_path.clone(),
 		config.email,
 		config.routes.clone(),
 		config.task_interval,

@@ -9,7 +9,9 @@ use crate::{
 			proxy::run_proxy,
 		},
 		models::{
-			certs::{CertDir, CertificateConfig, CertificateType, Email, TlsStore},
+			certs::{
+				CertAccountPath, CertDir, CertificateConfig, CertificateType, Email, TlsStore,
+			},
 			proxy::{ProxyConfig, ProxyRoute, ProxyTls},
 			routes::Route,
 			tasks::TaskInterval,
@@ -48,6 +50,7 @@ impl HandleFileSystem {
 
 pub struct HandleCertificates {
 	certificate_configs: Vec<CertificateConfig>,
+	cert_account_path: CertAccountPath,
 	task_interval: TaskInterval,
 	email: Email,
 }
@@ -55,6 +58,7 @@ pub struct HandleCertificates {
 impl HandleCertificates {
 	pub fn new(
 		cert_dir: CertDir,
+		cert_account_path: CertAccountPath,
 		email: Email,
 		routes: Vec<Route>,
 		task_interval: TaskInterval,
@@ -71,6 +75,7 @@ impl HandleCertificates {
 
 		Self {
 			certificate_configs,
+			cert_account_path,
 			task_interval,
 			email,
 		}
@@ -82,6 +87,7 @@ impl HandleCertificates {
 		let store = load_tls_store(&self.certificate_configs)?;
 		let renewal = CertBackgroundRenewal::new(
 			self.certificate_configs.clone(),
+			self.cert_account_path.clone(),
 			self.task_interval.clone(),
 			store.clone(),
 			self.email.clone(),

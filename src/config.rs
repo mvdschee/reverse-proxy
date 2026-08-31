@@ -15,12 +15,13 @@ const CONFIG_PATH_ENV: &str = "CONFIG_PATH";
 const CERT_DIR_ENV: &str = "CERT_DIR";
 const HTTP_PORT_ENV: &str = "HTTP_PORT";
 const HTTPS_PORT_ENV: &str = "HTTPS_PORT";
+pub const ACME_CHALLENGE_PREFIX: &str = "_acme-challenge.";
 
 const CERT_DIR_DEFAULT: &str = ".certs/";
 // this will be stored in the .certs/ or depending on where the user wants to store it
 const CERT_CREDENTIAL_FILE: &str = "acme_account";
-const HTTP_PORT_DEFAULT: u16 = 80;
-const HTTPS_PORT_DEFAULT: u16 = 443;
+const HTTP_PORT_DEFAULT: u16 = 880;
+const HTTPS_PORT_DEFAULT: u16 = 8443;
 const INPUT_ADDRESS: &str = "0.0.0.0";
 
 /// in seconds
