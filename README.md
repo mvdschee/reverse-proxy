@@ -63,6 +63,8 @@ services:
    proxy:
       image: maxvanderschee/reverse-proxy:latest # or ghcr.io/mvdschee/reverse-proxy:latest
       restart: unless-stopped
+      # host ports 80/443 mapped to container ports 8080/8443
+      # see ## Under the hood for explanation
       ports:
          - "80:8080"
          - "443:8443"
@@ -100,7 +102,7 @@ The full schema lives in [`example/example.toml`](example/example.toml). The fie
 | `acme.email`         | yes      | Contact email for Let's Encrypt (used once ACME lands; required today even if every route is `none`). |
 | `routes[].host`      | yes      | The `Host` header to match (e.g. `app.example.com`).                                                  |
 | `routes[].upstream`  | yes      | `host:port` to forward to. Use `host.docker.internal:<port>` to reach the host machine from Docker.   |
-| `routes[].cert_type` | no       | `self_signed` (default works on boot), `acme` (WIP), or `none` (HTTP only). Defaults to `acme`.       |
+| `routes[].cert_type` | no       | `self_signed` (default works on boot), `acme` (WIP), or `none` (HTTP only). Defaults to `none`.       |
 
 ## How it works
 
@@ -164,5 +166,12 @@ I'll be upfront on every public project about what was done with AI. For this on
 
 - Research and tradeoff discussions
 - Cleanup of the README and other prose
-- Talking through code-level solutions
+- Discussing code-level solutions
 - Generating the Docker image scaffolding from a spec
+
+# TODO:
+
+- finish create_acme_dns_challenge
+- create a dns entry checker for the background task
+- generate a staging certificate with instance_acme
+- wire up the full flow in CertBackgroundRenewal

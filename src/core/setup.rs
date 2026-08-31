@@ -2,12 +2,16 @@ use crate::{
 	Error, Result,
 	core::{
 		handlers::{
-			certs::generate_certs,
+			certs::{
+				CertBackgroundRenewal, certificate_paths, create_self_signed_certs, load_tls_store,
+			},
 			filesystem::{check_file_exists, safe_path},
 			proxy::run_proxy,
 		},
 		models::{
-			certs::{CertDir, CertificateConfig, CertificateType, Email},
+			certs::{
+				CertAccountPath, CertDir, CertificateConfig, CertificateType, Email, TlsStore,
+			},
 			proxy::{ProxyConfig, ProxyRoute, ProxyTls},
 			routes::Route,
 			tasks::TaskInterval,
@@ -46,12 +50,15 @@ impl HandleFileSystem {
 
 pub struct HandleCertificates {
 	certificate_configs: Vec<CertificateConfig>,
+	cert_account_path: CertAccountPath,
 	task_interval: TaskInterval,
+	email: Email,
 }
 
 impl HandleCertificates {
 	pub fn new(
 		cert_dir: CertDir,
+		cert_account_path: CertAccountPath,
 		email: Email,
 		routes: Vec<Route>,
 		task_interval: TaskInterval,
@@ -61,72 +68,69 @@ impl HandleCertificates {
 			.map(|route| CertificateConfig {
 				host: route.host.clone(),
 				cert_dir: cert_dir.clone(),
-				email: email.clone(),
 				cert_type: route.cert_type.clone(),
+				provider_config: route.dns_provider.clone(),
 			})
 			.collect::<Vec<CertificateConfig>>();
 
 		Self {
 			certificate_configs,
+			cert_account_path,
 			task_interval,
+			email,
 		}
 	}
 
-	pub fn run(self) -> Result<()> {
-		generate_certs(self.certificate_configs.clone())?;
+	pub fn run(self) -> Result<(TlsStore, CertBackgroundRenewal)> {
+		create_self_signed_certs(&self.certificate_configs)?;
 
-		// spawn(async move {
-		// 	info!("starting certificates tasks...");
-		// 	background_certs_task(self.certificates, self.task_interval).await;
-		// });
+		let store = load_tls_store(&self.certificate_configs)?;
+		let renewal = CertBackgroundRenewal::new(
+			self.certificate_configs.clone(),
+			self.cert_account_path.clone(),
+			self.task_interval.clone(),
+			store.clone(),
+			self.email.clone(),
+		);
 
-		Ok(())
+		Ok((store, renewal))
 	}
 }
 
 pub struct HandleProxy {
 	proxy_config: ProxyConfig,
 	proxy_routes: Vec<ProxyRoute>,
+	tls_store: TlsStore,
 }
 
 impl HandleProxy {
-	pub fn new(proxy_config: ProxyConfig, routes: Vec<Route>) -> Result<Self> {
+	pub fn new(proxy_config: ProxyConfig, routes: Vec<Route>, tls_store: TlsStore) -> Result<Self> {
 		let mut proxy_routes = Vec::new();
 
 		for route in routes {
-			let cert_filename = format!("{}.pem", route.host);
-			let key_filename = format!("{}.key", route.host);
-
-			let key_path = safe_path(&proxy_config.cert_dir, &key_filename)?;
-			let cert_path = safe_path(&proxy_config.cert_dir, &cert_filename)?;
-
-			let has_tls_files = check_file_exists(&key_path) && check_file_exists(&cert_path);
-
-			// We only show a warning so its easier to debug once its running,
-			// but we are not stopping any traffic.
-			if !has_tls_files && route.cert_type != CertificateType::None {
-				warn!("Certificate files not found for host `{}` but is expected", route.host);
-			}
-
 			proxy_routes.push(ProxyRoute {
 				host: route.host.clone(),
 				upstream: route.upstream.clone(),
 				tls: ProxyTls::from(route.cert_type != CertificateType::None),
-				cert_path,
-				key_path,
 			});
 		}
 
 		Ok(Self {
 			proxy_config,
 			proxy_routes,
+			tls_store,
 		})
 	}
 
-	pub fn run(&self) -> Result<()> {
+	pub fn run(&self, renewal: CertBackgroundRenewal) -> Result<()> {
 		info!("proxy running...");
 
-		run_proxy(self.proxy_config.clone(), self.proxy_routes.clone())?;
+		run_proxy(
+			self.proxy_config.clone(),
+			self.proxy_routes.clone(),
+			self.tls_store.clone(),
+			renewal,
+		)?;
 
 		Err(Error::Proxy("proxy exited".to_string()))
 	}

@@ -1,12 +1,13 @@
 use crate::{
 	Error, Result,
 	core::models::{
-		certs::{CertDir, Email},
+		certs::{CertAccountPath, CertDir, Email},
 		proxy::{ProxyInputAddress, ProxyPort},
 		routes::Route,
 		tasks::TaskInterval,
 	},
 };
+use instant_acme::AccountCredentials;
 use serde::Deserialize;
 use std::{env, fs};
 
@@ -14,19 +15,24 @@ const CONFIG_PATH_ENV: &str = "CONFIG_PATH";
 const CERT_DIR_ENV: &str = "CERT_DIR";
 const HTTP_PORT_ENV: &str = "HTTP_PORT";
 const HTTPS_PORT_ENV: &str = "HTTPS_PORT";
+pub const ACME_CHALLENGE_PREFIX: &str = "_acme-challenge.";
 
 const CERT_DIR_DEFAULT: &str = ".certs/";
-const HTTP_PORT_DEFAULT: u16 = 80;
-const HTTPS_PORT_DEFAULT: u16 = 443;
+// this will be stored in the .certs/ or depending on where the user wants to store it
+const CERT_CREDENTIAL_FILE: &str = "acme_account";
+const HTTP_PORT_DEFAULT: u16 = 880;
+const HTTPS_PORT_DEFAULT: u16 = 8443;
 const INPUT_ADDRESS: &str = "0.0.0.0";
 
-// in seconds
-const CERT_BACKGROUND_TASK_INTERVAL: u64 = 120;
+/// in seconds
+const CERT_BACKGROUND_TASK_INTERVAL: u64 = 3600; // 1 hour
 
 #[derive(Debug, Clone)]
 pub struct Config {
 	pub email: Email,
 	pub cert_dir: CertDir,
+	// opague string type as it can't be cloned when its in AccountCredentials type
+	pub cert_account_path: CertAccountPath,
 	pub routes: Vec<Route>,
 	pub task_interval: TaskInterval,
 	pub http_port: ProxyPort,
@@ -51,6 +57,8 @@ impl Config {
 		let config_file = parse_toml_config(config_path)?;
 
 		let cert_dir = load_env(CERT_DIR_ENV).unwrap_or_else(|_| CERT_DIR_DEFAULT.to_string());
+		let cert_account_path = format!("{}/{}", cert_dir, CERT_CREDENTIAL_FILE);
+
 		let http_port =
 			load_env(HTTP_PORT_ENV).ok().and_then(|v| v.parse().ok()).unwrap_or(HTTP_PORT_DEFAULT);
 		let https_port = load_env(HTTPS_PORT_ENV)
@@ -61,6 +69,7 @@ impl Config {
 		Ok(Config {
 			email: config_file.acme.email.clone(),
 			cert_dir: CertDir::from(cert_dir),
+			cert_account_path: CertAccountPath::from(cert_account_path),
 			routes: config_file.routes.clone(),
 			task_interval: TaskInterval::from(CERT_BACKGROUND_TASK_INTERVAL),
 			http_port: ProxyPort::from(http_port),

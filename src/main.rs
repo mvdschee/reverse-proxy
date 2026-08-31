@@ -10,6 +10,7 @@ pub use error::{Error, Result};
 mod config;
 mod core;
 pub mod error;
+mod services;
 mod utils;
 
 // entry needs to be synchronous as pingora has there own
@@ -25,21 +26,21 @@ fn main() -> Result<()> {
 	// and spin up background tasks to refresh certificates
 	let cert_handler = HandleCertificates::new(
 		config.cert_dir.clone(),
+		config.cert_account_path.clone(),
 		config.email,
 		config.routes.clone(),
 		config.task_interval,
 	);
-	cert_handler.run()?;
+	let (store, renewal) = cert_handler.run()?;
 
 	// start the proxy
 	let proxy_config = ProxyConfig {
-		cert_dir: config.cert_dir.clone(),
 		http_port: config.http_port,
 		https_port: config.https_port,
 		input_address: config.input_address,
 	};
-	let proxy_handler = HandleProxy::new(proxy_config, config.routes)?;
-	proxy_handler.run()?;
+	let proxy_handler = HandleProxy::new(proxy_config, config.routes, store)?;
+	proxy_handler.run(renewal)?;
 
 	Err(Error::MainLoopClosed)
 }

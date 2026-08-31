@@ -6,6 +6,7 @@ services:
          context: .
          dockerfile: .docker/Dockerfile
       ports:
+         # nonroot user can't bind to ports < 1024, so map to 8080/8443
          - "80:8080"
          - "443:8443"
       # Lets upstream = "host.docker.internal:<port>" reach apps running
