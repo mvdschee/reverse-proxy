@@ -1,5 +1,5 @@
 dev:
-	CONFIG_PATH=./example/example.toml watchexec -q -c -w src --exts rs --restart "cargo run"
+	CONFIG_PATH=./example/local.toml watchexec -q -c -w src --exts rs --restart "cargo run"
 
 scan:
 	foxguard --config .foxguard.yml

@@ -1,11 +1,12 @@
 services:
    proxy:
       # Replace with the actual image
-      # image: ghcr.io/mvdschee/proxy:latest
+      # image: ghcr.io/mvdschee/reverse-proxy:latest
       build:
          context: .
          dockerfile: .docker/Dockerfile
       ports:
+         # nonroot user can't bind to ports < 1024, so map to 8080/8443
          - "80:8080"
          - "443:8443"
       # Lets upstream = "host.docker.internal:<port>" reach apps running
@@ -23,8 +24,6 @@ services:
          - no-new-privileges:true
       cap_drop:
          - ALL
-      tmpfs:
-         - /tmp
       healthcheck:
          # Busybox `nc -z` confirms the HTTP listener is bound. It does
          # not exercise the proxy path; the listener simply has to accept.

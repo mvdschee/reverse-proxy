@@ -1,20 +1,21 @@
-use crate::core::models::routes::Host;
+use crate::{
+	core::models::{dns::ProviderCredentail, filesystem::SafePath, routes::Host},
+	string_newtype,
+};
+use arc_swap::ArcSwap;
 use pingora::tls::{
 	pkey::{PKey, Private},
 	x509::X509,
 };
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::fmt;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum CertificateType {
 	SelfSigned,
-	#[default]
 	Acme,
+	#[default]
 	None,
 }
 
@@ -22,8 +23,8 @@ pub enum CertificateType {
 pub struct CertificateConfig {
 	pub host: Host,
 	pub cert_dir: CertDir,
-	pub email: Email,
 	pub cert_type: CertificateType,
+	pub provider_config: Option<ProviderCredentail>,
 }
 
 pub struct TlsMaterial {
@@ -31,52 +32,16 @@ pub struct TlsMaterial {
 	pub key: PKey<Private>,
 }
 
-pub type TlsCerts = Arc<HashMap<Host, TlsMaterial>>;
+pub type KeyPath = SafePath;
+pub type CertPath = SafePath;
+
+pub type TlsStore = Arc<ArcSwap<HashMap<Host, TlsMaterial>>>;
 
 // --- EMAIL ---
-#[derive(Debug, Clone, Deserialize)]
-pub struct Email(String);
-
-impl Deref for Email {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for Email {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for Email {
-	fn from(s: String) -> Self {
-		Email(s)
-	}
-}
+string_newtype!(Email, derive(Deserialize));
 
 // --- CERT_DIR ---
-#[derive(Debug, Clone, Deserialize)]
-pub struct CertDir(String);
+string_newtype!(CertDir, derive(Deserialize));
 
-impl Deref for CertDir {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for CertDir {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for CertDir {
-	fn from(s: String) -> Self {
-		CertDir(s)
-	}
-}
+// --- CERT_ACCOUNT_PATH ---
+pub type CertAccountPath = SafePath;
