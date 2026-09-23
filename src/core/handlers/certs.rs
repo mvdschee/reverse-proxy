@@ -6,7 +6,7 @@ use crate::{
 		models::{
 			certs::{
 				CertAccountPath, CertDir, CertPath, CertificateConfig, CertificateType, Email,
-				KeyPath, TlsMaterial, TlsStore,
+				KeyPath, OrderOutcome, TlsMaterial, TlsStore,
 			},
 			dns::{
 				ChallengePrefix, Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail,
@@ -210,7 +210,7 @@ async fn renew_host(
 	};
 
 	// --------------
-	// CHOOSE STATE STAGE
+	// CHOOSE STAGE
 	// --------------
 	let order_url = pending_order_urls.get(&config.host);
 	let mut order = create_order(account, &config.host, order_url).await?;
@@ -218,49 +218,58 @@ async fn renew_host(
 	let ready_to_validate = order_url.is_some();
 
 	if ready_to_validate {
-		info!("[{}] stage 2: resuming order {}", config.host, order.url());
+		info!("[{}] stage 2: resuming order", config.host);
 	} else {
-		info!("[{}] stage 1: new order {}", config.host, order.url());
+		info!("[{}] stage 1: new order", config.host);
 	}
 
-	let state = order.state();
-	info!("[{}] order status {:?}", config.host, state.status);
+	// --------------
+	// ACTION STAGE
+	// --------------
+	let order_status = order.state().status;
+	info!("[{}] order status {:?}", config.host, order_status);
 
-	// --------------
-	// RENEWAL STAGE
-	// --------------
 	let dns_service =
 		get_dns_services(dns_service_config, http_client.clone(), config.host.clone());
 
-	if !ready_to_validate {
-		// set dns value
-		authorizations_dns(&mut order, &dns_service, &config.host).await?;
-		pending_order_urls.insert(config.host.clone(), order.url().to_string());
+	let outcome = match (order_status, ready_to_validate) {
+		(OrderStatus::Pending, false) => {
+			authorizations_dns(&mut order, &dns_service, &config.host).await?;
+			OrderOutcome::Waiting
+		},
+		(OrderStatus::Pending, true) => {
+			authorizations_ready(&mut order, &config.host).await?;
+			finish_order(&mut order, tls_store, &config).await?
+		},
+		(OrderStatus::Ready, _) => finish_order(&mut order, tls_store, &config).await?,
+		(OrderStatus::Valid, _) => OrderOutcome::Dead,
+		(OrderStatus::Processing, _) => OrderOutcome::Dead,
+		(OrderStatus::Invalid, _) => OrderOutcome::Dead,
+	};
 
-		info!("[{}] wrote to dns provider, next loop will valide", config.host);
+	match outcome {
+		OrderOutcome::Issued => {
+			info!("[{}] renewed", config.host);
+			pending_order_urls.remove(&config.host)
+		},
+		OrderOutcome::Dead => {
+			warn!("[{}] order dropped ({:?}), new order next tick", config.host, order_status);
+			pending_order_urls.remove(&config.host)
+		},
+		OrderOutcome::Waiting => {
+			info!("[{}] holding order for next tick", config.host);
+			pending_order_urls.insert(config.host.clone(), order.url().to_string())
+		},
+	};
 
-		return Ok(());
-	}
-	// --------------
-	// VALIDE STAGE
-	// --------------
-	let result = finish_order(&mut order, tls_store, &config).await;
-	pending_order_urls.remove(&config.host);
-
-	match &result {
-		Ok(_) => info!("[{}] renewed, order finished", config.host),
-		Err(err) => warn!("[{}] error on order, will try again next loop: {}", config.host, err),
-	}
-
-	result
+	Ok(())
 }
 
 async fn finish_order(
 	order: &mut Order,
 	tls_store: &TlsStore,
 	config: &CertificateConfig,
-) -> Result<()> {
-	authorizations_ready(order, &config.host).await?;
+) -> Result<OrderOutcome> {
 	// Exponentially back off until the order becomes ready or invalid.
 	let status = order
 		.poll_ready(&RetryPolicy::default())
@@ -301,7 +310,7 @@ async fn finish_order(
 
 	info!("[{}] tls store updated", config.host);
 
-	Ok(())
+	Ok(OrderOutcome::Issued)
 }
 
 async fn authorizations_dns(
@@ -318,17 +327,17 @@ async fn authorizations_dns(
 			.map_err(|e| Error::Certificate(format!("authorizations for this order: {}", e)))?;
 
 		match authz.status {
-			AuthorizationStatus::Pending => {},
+			// all status should continue here, we are create a new entry
+			AuthorizationStatus::Pending
+			| AuthorizationStatus::Invalid
+			| AuthorizationStatus::Revoked
+			| AuthorizationStatus::Expired
+			| AuthorizationStatus::Deactivated => {},
 			AuthorizationStatus::Valid => {
 				info!("[{}] authorization already valid, no record needed", host);
 				continue;
 			},
-			_ => {
-				return Err(Error::Certificate(format!(
-					"authorization status is {:?}",
-					authz.status
-				)));
-			},
+			// no catch all to prevent introducing new status
 		}
 
 		let mut challenge = match authz.challenge(ChallengeType::Dns01) {
@@ -357,17 +366,18 @@ async fn authorizations_ready(order: &mut Order, host: &Host) -> Result<()> {
 			.map_err(|e| Error::Certificate(format!("authorizations for this order: {}", e)))?;
 
 		match authz.status {
+			// this one should continue
 			AuthorizationStatus::Pending => {},
-			AuthorizationStatus::Valid => {
-				info!("[{}] authorization already valid", host);
+			// others need to just skip and log
+			AuthorizationStatus::Valid
+			| AuthorizationStatus::Expired
+			| AuthorizationStatus::Invalid
+			| AuthorizationStatus::Revoked
+			| AuthorizationStatus::Deactivated => {
+				info!("[{}] authorization {:?}", host, authz.status);
 				continue;
 			},
-			_ => {
-				return Err(Error::Certificate(format!(
-					"authorization status is {:?}",
-					authz.status
-				)));
-			},
+			// no catch all to prevent introducing new status
 		}
 
 		let mut challenge = match authz.challenge(ChallengeType::Dns01) {

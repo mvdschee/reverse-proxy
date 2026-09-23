@@ -27,6 +27,12 @@ pub struct CertificateConfig {
 	pub provider_config: Option<ProviderCredentail>,
 }
 
+pub enum OrderOutcome {
+	Issued,  // clear pending
+	Waiting, // keep pending, try next loop
+	Dead,    // clear pending, new order next loop
+}
+
 pub struct TlsMaterial {
 	pub cert: X509,
 	pub key: PKey<Private>,
