@@ -99,7 +99,7 @@ impl BackgroundService for CertBackgroundRenewal {
 		let mut pending_order_urls: HashMap<Host, String> = HashMap::new();
 
 		loop {
-			info!("renewal tick: {} acme hosts", configs.clone().count());
+			info!("renewal loop: {} ACME hosts", configs.clone().count());
 
 			for config in configs.clone() {
 				if let Err(err) = renew_host(
@@ -115,7 +115,7 @@ impl BackgroundService for CertBackgroundRenewal {
 				}
 			}
 
-			info!("background renewal loop sleeping for {:?} seconds...", self.task_interval);
+			info!("background renewal loop sleeping for {} seconds...", *self.task_interval);
 
 			tokio::select! {
 				_ = tokio::time::sleep(Duration::from_secs(*self.task_interval)) => {}
@@ -237,7 +237,7 @@ async fn renew_host(
 		authorizations_dns(&mut order, &dns_service, &config.host).await?;
 		pending_order_urls.insert(config.host.clone(), order.url().to_string());
 
-		info!("[{}] order held, validating next tick", config.host);
+		info!("[{}] wrote to dns provider, next loop will valide", config.host);
 
 		return Ok(());
 	}
@@ -248,8 +248,8 @@ async fn renew_host(
 	pending_order_urls.remove(&config.host);
 
 	match &result {
-		Ok(_) => info!("[{}] renewed, order cleared", config.host),
-		Err(err) => warn!("[{}] order dropped, new order next tick: {}", config.host, err),
+		Ok(_) => info!("[{}] renewed, order finished", config.host),
+		Err(err) => warn!("[{}] error on order, will try again next loop: {}", config.host, err),
 	}
 
 	result
