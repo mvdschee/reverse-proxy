@@ -32,6 +32,15 @@ pub struct TlsMaterial {
 	pub key: PKey<Private>,
 }
 
+impl Clone for TlsMaterial {
+	fn clone(&self) -> Self {
+		Self {
+			cert: self.cert.to_owned(),
+			key: self.key.to_owned(),
+		}
+	}
+}
+
 pub type KeyPath = SafePath;
 pub type CertPath = SafePath;
 

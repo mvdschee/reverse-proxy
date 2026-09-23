@@ -1,25 +1,38 @@
 use crate::{
 	Error, Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, string_newtype,
 };
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
 
-pub trait DnsProvider: Send + Sync + 'static {
-	/// Only returns single record
-	/// gets all records but internally filters out all records either,
-	/// after the call or if it supports it directly on the endpoint call.
-	fn get_challenge_record(&self, host: &Host) -> Result<Record>;
+#[async_trait]
+pub trait DnsProvider {
 	/// Single fuction to set and update
 	/// will return the set record (if returned otherwise fake it)
-	fn update_challenge_record(&self, host: &Host, value: &str) -> Result<Record>;
+	async fn upsert_challenge_record(&self, dns_value: String) -> Result<Record>;
 }
 
-fn default_challenge_prefix() -> String {
+pub fn default_challenge_prefix() -> String {
 	ACME_CHALLENGE_PREFIX.to_string()
 }
 
 // --- DNS Record ---
-string_newtype!(Record, derive(Deserialize));
+pub struct Record {
+	pub provider_id: RecordId,
+	pub name: String,
+	pub value: String,
+}
+
+// --- Challenge Prefix (ex: _acme-challenge.) ---
+string_newtype!(ChallengePrefix, derive(Deserialize));
+
+// API token can be for any provider.
+// we can safely asume that this will always be a string
+string_newtype!(ApiToken, derive(Deserialize));
+
+// DNS Record ID, meant for any provider
+// the dns provider required to update a record
+string_newtype!(RecordId, derive(Deserialize));
 
 // --- DNS Provider credentials ---
 
@@ -29,31 +42,26 @@ pub enum ProviderCredentail {
 	Cloudflare(CloudflareProvider),
 }
 
-// --- add here any other providers credentials ---
+// --- add here any other providers credentials or needed structs ---
 
 // --- CloudFlare ---
+// ASSIGNED TYPE PREFIX: CF
 
-// config coming from TOML file
+// config struct, define here your values that is needed,
+// for the runtime struct
 #[derive(Debug, Clone, Deserialize)]
 pub struct CloudflareProvider {
-	pub zone_id: ZoneId,
 	pub api_token: ApiToken,
-	// challenge_prefix is a default value from ACME,
-	// this can not be set or changed from the userside
-	// but its here to keep keep it as a single config
-	// per provider
-	#[serde(skip, default = "default_challenge_prefix")]
-	pub challenge_prefix: String,
+	pub zone_id: CFZoneId,
 }
 
-// struct that hold client
+// runtime struct that will actually do the DNS updating
 pub struct Cloudflare {
-	client: Client,
-	config: CloudflareProvider,
+	pub client: Client,
+	pub host: Host,
+	pub config: CloudflareProvider,
+	pub challenge_prefix: ChallengePrefix,
 }
 
 // Zone ID
-string_newtype!(ZoneId, derive(Deserialize));
-
-// API token
-string_newtype!(ApiToken, derive(Deserialize));
+string_newtype!(CFZoneId, derive(Deserialize));

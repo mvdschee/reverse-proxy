@@ -12,7 +12,7 @@ use instant_acme::{
 use rustls::crypto::CryptoProvider;
 
 pub fn init_account() {
-	CryptoProvider::install_default(rustls::crypto::ring::default_provider());
+	CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
 }
 
 pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
@@ -30,7 +30,7 @@ pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
 // this one returns credentials, because we are going to save it to the file
 // for later usage to start the process with the same credentials
 pub async fn create_account(email: &Email) -> Result<(Account, AccountCredentials)> {
-	CryptoProvider::install_default(rustls::crypto::ring::default_provider());
+	CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
 
 	let (account, credentials) = Account::builder()
 		.map_err(|e| Error::Acme(e.to_string()))?
@@ -52,16 +52,26 @@ pub async fn create_account(email: &Email) -> Result<(Account, AccountCredential
 	Ok((account, credentials))
 }
 
-pub async fn create_order(account: &Account, host: &Host) -> Result<Order> {
+pub async fn create_order(
+	account: &Account,
+	host: &Host,
+	order_url: Option<&String>,
+) -> Result<Order> {
 	let identifier = Identifier::Dns(host.to_string());
 	// instant_acme support multiple host per order,
 	// but we need to know which dns needs to be updated
 	// which is why we split them up, this is maybe something we can refine in V2
 	let identifiers = vec![identifier];
-	let order_result = account
-		.new_order(&NewOrder::new(&identifiers))
-		.await
-		.map_err(|e| Error::Acme(format!("Failed with new_order: {}", e)));
 
-	order_result
+	if let Some(order_url) = order_url {
+		account
+			.order(order_url.to_owned())
+			.await
+			.map_err(|e| Error::Acme(format!("Failed with order_from_url: {}", e)))
+	} else {
+		account
+			.new_order(&NewOrder::new(&identifiers))
+			.await
+			.map_err(|e| Error::Acme(format!("Failed with new_order: {}", e)))
+	}
 }

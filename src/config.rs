@@ -26,6 +26,7 @@ const INPUT_ADDRESS: &str = "0.0.0.0";
 
 /// in seconds
 const CERT_BACKGROUND_TASK_INTERVAL: u64 = 3600; // 1 hour
+pub const CERT_RENEWAL_TRESHOLD_DAYS: u32 = 30;
 
 #[derive(Debug, Clone)]
 pub struct Config {
