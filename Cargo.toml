@@ -19,25 +19,44 @@ unused = { level = "allow", priority = -1 }
 
 [dependencies]
 # Async
-async-trait = "0.1.91"
+async-trait = "0.1.92"
 tokio = { version = "1.53.1", features = ["full"] }
 
+# Arc
+arc-swap = "1.9.2"
+
 # Certs
-# used Ring as backend for default
-rcgen = { version = "0.14.8", features = ["default"] }
-# match the backed from rcgen
-instant-acme = { version = "0.8.5", features = ["rcgen"] }
+# aws-lc-rs backend: post-quantum key exchange in rustls
+rcgen = { version = "0.14.10", default-features = false, features = [
+   "aws_lc_rs",
+   "pem",
+] }
+# match the backend from rcgen
+instant-acme = { version = "0.8.5", default-features = false, features = [
+   "aws-lc-rs",
+   "rcgen",
+   "hyper-rustls",
+] }
+rustls = "0.23.45"
+
 
 # TOML
-toml = "1.1.3"
+toml = "1.1.6"
 
 # Json
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 
 # Others
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 chrono = { version = "0.4.45", features = ["serde"] }
 
 # HTTP
-http = "1.4.2"
-pingora = { version = "0.8.1", features = ["proxy", "boringssl"] }
+http = "1.5.0"
+pingora = { version = "0.9.0", features = ["proxy", "boringssl"] }
+# https://github.com/cloudflare/pingora/blob/0.9.0/pingora-boringssl/Cargo.toml
+# keep it in-sync with the pingora-boringssl crate
+boring = { version = "5.2.0", features = ["pq-experimental"] }
+
+# HTTP Client
+reqwest = { version = "0.13.5", features = ["json"] }

@@ -1,10 +1,13 @@
-use crate::core::models::{
-	certs::CertDir,
-	filesystem::SafePath,
-	routes::{Host, Upstream},
+use crate::{
+	core::models::{
+		certs::CertDir,
+		filesystem::SafePath,
+		routes::{Host, Upstream},
+	},
+	string_newtype,
 };
 use http::{Response, StatusCode, header};
-use std::{collections::HashMap, fmt, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 pub type ProxyRouteMap = Arc<HashMap<Host, ProxyRoute>>;
 
@@ -13,13 +16,10 @@ pub struct ProxyRoute {
 	pub host: Host,
 	pub upstream: Upstream,
 	pub tls: ProxyTls,
-	pub cert_path: SafePath,
-	pub key_path: SafePath,
 }
 
 #[derive(Debug, Clone)]
 pub struct ProxyConfig {
-	pub cert_dir: CertDir,
 	pub http_port: ProxyPort,
 	pub https_port: ProxyPort,
 	pub input_address: ProxyInputAddress,
@@ -62,25 +62,4 @@ impl From<u16> for ProxyPort {
 }
 
 // --- PROXY INPUT ADDRESS ---
-#[derive(Debug, Clone)]
-pub struct ProxyInputAddress(String);
-
-impl Deref for ProxyInputAddress {
-	type Target = String;
-
-	fn deref(&self) -> &String {
-		&self.0
-	}
-}
-
-impl fmt::Display for ProxyInputAddress {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-impl From<String> for ProxyInputAddress {
-	fn from(s: String) -> Self {
-		ProxyInputAddress(s)
-	}
-}
+string_newtype!(ProxyInputAddress);

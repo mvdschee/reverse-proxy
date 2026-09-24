@@ -1,4 +1,77 @@
 {
   "version": 1,
-  "entries": []
+  "entries": [
+    {
+      "fingerprint": "c83ec97a81c065791034e7c9f84b5b5b161d0f153769776c4302f6cc9abfdf64",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 1116
+    },
+    {
+      "fingerprint": "69c05430e9540a0956fd081fc80ab87dae7b932577a1e783341e0b3bd9191d31",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 1305
+    },
+    {
+      "fingerprint": "8b9b6b0b92b0e72da9537783f6da83ebd143a90ce87784fb7ebadc411cb9f91c",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2019
+    },
+    {
+      "fingerprint": "35f1894703726c0d1e4cdce8b363be845a69c73b9773331e85fc9920fbc070b8",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2040
+    },
+    {
+      "fingerprint": "3cb5a576c00c85972ce3520bee74e43a00116fefe5c18b3f7ff497a4588e1de8",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2060
+    },
+    {
+      "fingerprint": "b9f5ed00b459bf9b507ac92b42ad465400f2b46c4460b263a3ac72f19e0e0814",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2174
+    },
+    {
+      "fingerprint": "838fbf817ccb751dedf659d1b77117a13e3dcc7c2ab7c6a57924850ee499dfeb",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2226
+    },
+    {
+      "fingerprint": "267e2e1b551d413e1c3a149e96b09b00185c74fcff79563fd212434c261347f3",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2333
+    },
+    {
+      "fingerprint": "610733967a5365eae02d09840dc5e86d384734ab454807f42f4cfbc905200840",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2370
+    },
+    {
+      "fingerprint": "d401418b5bd1b145562c4e9540ca3c1a1ce40351d099af843eecff1997c83620",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2397
+    },
+    {
+      "fingerprint": "299fe05a3fd8b40f88705bcbaabe4b3f4d03fad859c27cc8b9a18f49ff70460d",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 2852
+    },
+    {
+      "fingerprint": "e743904a82ca7765bbb178c7e46966678aca78b93e2a7280d53ed2734383999a",
+      "rule_id": "manifest/cargo-pq-vulnerable-dep",
+      "file": "Cargo.lock",
+      "line": 3400
+    }
+  ]
 }
