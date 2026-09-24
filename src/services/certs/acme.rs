@@ -40,8 +40,7 @@ pub async fn create_account(email: &Email) -> Result<(Account, AccountCredential
 				terms_of_service_agreed: true,
 				only_return_existing: false,
 			},
-			// TODO: switch to prod
-			LetsEncrypt::Staging.url().to_owned(),
+			LetsEncrypt::Production.url().to_owned(),
 			None,
 		)
 		.await
