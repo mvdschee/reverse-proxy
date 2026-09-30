@@ -12,6 +12,7 @@ use crate::{
 			certs::{
 				CertAccountPath, CertDir, CertificateConfig, CertificateType, Email, TlsStore,
 			},
+			config::AcmeEnv,
 			proxy::{ProxyConfig, ProxyRoute, ProxyTls},
 			routes::Route,
 			tasks::TaskInterval,
@@ -53,6 +54,7 @@ pub struct HandleCertificates {
 	cert_account_path: CertAccountPath,
 	task_interval: TaskInterval,
 	email: Email,
+	acme_env: AcmeEnv,
 }
 
 impl HandleCertificates {
@@ -60,6 +62,7 @@ impl HandleCertificates {
 		cert_dir: CertDir,
 		cert_account_path: CertAccountPath,
 		email: Email,
+		acme_env: AcmeEnv,
 		routes: Vec<Route>,
 		task_interval: TaskInterval,
 	) -> Self {
@@ -78,6 +81,7 @@ impl HandleCertificates {
 			cert_account_path,
 			task_interval,
 			email,
+			acme_env,
 		}
 	}
 
@@ -91,6 +95,7 @@ impl HandleCertificates {
 			self.task_interval.clone(),
 			store.clone(),
 			self.email.clone(),
+			self.acme_env.clone(),
 		);
 
 		Ok((store, renewal))

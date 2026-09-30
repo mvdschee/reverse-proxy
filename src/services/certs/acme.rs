@@ -2,6 +2,7 @@ use crate::{
 	Error, Result,
 	core::models::{
 		certs::{CertificateConfig, Email},
+		config::AcmeEnv,
 		routes::Host,
 	},
 	info,
@@ -29,8 +30,19 @@ pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
 
 // this one returns credentials, because we are going to save it to the file
 // for later usage to start the process with the same credentials
-pub async fn create_account(email: &Email) -> Result<(Account, AccountCredentials)> {
+pub async fn create_account(
+	email: &Email,
+	acme_env: &AcmeEnv,
+) -> Result<(Account, AccountCredentials)> {
 	CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
+
+	let url = if acme_env.as_str() == "production" {
+		info!("Using production ACME server");
+		LetsEncrypt::Production.url().to_owned()
+	} else {
+		info!("Using staging ACME server");
+		LetsEncrypt::Staging.url().to_owned()
+	};
 
 	let (account, credentials) = Account::builder()
 		.map_err(|e| Error::Acme(e.to_string()))?
@@ -40,7 +52,7 @@ pub async fn create_account(email: &Email) -> Result<(Account, AccountCredential
 				terms_of_service_agreed: true,
 				only_return_existing: false,
 			},
-			LetsEncrypt::Production.url().to_owned(),
+			url,
 			None,
 		)
 		.await

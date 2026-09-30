@@ -8,6 +8,7 @@ use crate::{
 				CertAccountPath, CertDir, CertPath, CertificateConfig, CertificateType, Email,
 				KeyPath, OrderOutcome, TlsMaterial, TlsStore,
 			},
+			config::AcmeEnv,
 			dns::{
 				ChallengePrefix, Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail,
 			},
@@ -47,6 +48,7 @@ pub struct CertBackgroundRenewal {
 	pub task_interval: TaskInterval,
 	pub tls_store: TlsStore,
 	pub email: Email,
+	pub acme_env: AcmeEnv,
 }
 
 impl CertBackgroundRenewal {
@@ -56,12 +58,14 @@ impl CertBackgroundRenewal {
 		task_interval: TaskInterval,
 		tls_store: TlsStore,
 		email: Email,
+		acme_env: AcmeEnv,
 	) -> Self {
 		Self {
 			certificate_configs,
 			cert_account_path,
 			task_interval,
 			tls_store,
+			acme_env,
 			email,
 		}
 	}
@@ -81,7 +85,13 @@ impl BackgroundService for CertBackgroundRenewal {
 			},
 		};
 
-		let account = match resolve_acme_account(&self.cert_account_path, &self.email).await {
+		let account = match resolve_acme_account(
+			&self.cert_account_path,
+			&self.email,
+			&self.acme_env,
+		)
+		.await
+		{
 			Ok(account) => account,
 			Err(err) => {
 				error!("Failed to resolve ACME account: {err:?}");
@@ -415,15 +425,18 @@ fn get_dns_services(config: ProviderCredentail, client: Client, host: Host) -> i
 async fn resolve_acme_account(
 	cert_account_path: &CertAccountPath,
 	email: &Email,
+	acme_env: &AcmeEnv,
 ) -> Result<Account> {
 	// set crypto lib to load/create the account
 	init_account();
 
 	if let Ok(credentials) = get_acme_account(cert_account_path) {
+		warn!("loading the previouse account, this skip the ACME_ENV value");
+		warn!("remove acme_account in your cert folder if this is not what you want");
 		return load_account(credentials).await;
 	}
 
-	let (account, credentials) = create_account(email).await?;
+	let (account, credentials) = create_account(email, acme_env).await?;
 	let content = serde_json::to_vec(&credentials)
 		.map_err(|e| Error::Acme(format!("Failed to serialize ACME account: {}", e)))?;
 	write_file(cert_account_path.clone(), &content)?;

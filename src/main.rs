@@ -1,9 +1,6 @@
-use crate::{
-	config::Config,
-	core::{
-		models::proxy::ProxyConfig,
-		setup::{HandleCertificates, HandleFileSystem, HandleProxy},
-	},
+use crate::core::{
+	models::{config::Config, proxy::ProxyConfig},
+	setup::{HandleCertificates, HandleFileSystem, HandleProxy},
 };
 pub use error::{Error, Result};
 
@@ -28,6 +25,7 @@ fn main() -> Result<()> {
 		config.cert_dir.clone(),
 		config.cert_account_path.clone(),
 		config.email,
+		config.acme_env,
 		config.routes.clone(),
 		config.task_interval,
 	);
