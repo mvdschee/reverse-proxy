@@ -1,1 +1,2 @@
 mod cloudflare;
+mod resolver;
