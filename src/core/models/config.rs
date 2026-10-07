@@ -17,7 +17,8 @@ pub struct Config {
 	// opague string type as it can't be cloned when its in AccountCredentials type
 	pub cert_account_path: CertAccountPath,
 	pub routes: Vec<Route>,
-	pub task_interval: TaskInterval,
+	pub task_interval_default: TaskInterval,
+	pub task_interval_pending: TaskInterval,
 	pub http_port: ProxyPort,
 	pub https_port: ProxyPort,
 	pub input_address: ProxyInputAddress,

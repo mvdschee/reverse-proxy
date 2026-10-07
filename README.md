@@ -6,11 +6,11 @@ A single-binary reverse proxy for self-hosting. One TOML file declares your rout
 
 ## Why
 
-`nginxproxy/nginx-proxy` was my go-to for a while and it does the job. The thing I never liked: you have to put `VIRTUAL_HOST` labels on every container and keep the Docker network sorted. Always felt a bit wrong, but hey, it was the best we got.
+`nginxproxy/nginx-proxy` was my go-to for a while, and it does the job. What I never liked is that every container needs a `VIRTUAL_HOST` label and has to share a network with the proxy. That always felt a bit wrong to me.
 
-The landscape's changed and there are more options now. What still annoys me: getting a real certificate on an internal network seems like a lot of work. This project automates Let's Encrypt renewal by writing DNS records via the provider's API.
+A lot has changed since then. Building your own proxy is doable now, though it comes with its own challenges, so I built this one on a proven stack. The core idea: keep it simple for self-hosted projects, and still get a legit Let's Encrypt certificate for a box the internet can't reach. Point `vault.example.com` at a LAN IP in your own DNS, and you get proper HTTPS on your home network.
 
-The code is written by hand, no AI. I want to keep my Rust skills in shape and still enjoy writing software.
+The code is written by hand, no AI. I want to keep my Rust skills sharp, and I still enjoy writing code.
 
 ## Features
 
@@ -18,7 +18,7 @@ The code is written by hand, no AI. I want to keep my Rust skills in shape and s
 - Routing by `Host` header from a single TOML file
 - Self-signed certs generated on boot for `self_signed` routes
 - 301 redirect from HTTP → HTTPS for any route that has a cert
-- Full ACME / Let's Encrypt: an hourly renewal loop that orders a cert, writes the DNS TXT record via Cloudflare API, and hot-swaps it in without a restart
+- Full ACME / Let's Encrypt: a renewal loop (hourly, every 2 minutes while an order is pending) that orders a cert, writes the DNS TXT record via Cloudflare API, and hot-swaps it in without a restart
 - Hardened container image: non-root, read-only rootfs, all capabilities dropped, no shell
 - Multi-arch images (amd64, arm64) on Docker Hub and GHCR per release
 
@@ -96,19 +96,23 @@ volumes:
 
 An `[acme]` table and a list of `[[routes]]`. Full annotated schema: [`example/example.toml`](example/example.toml).
 
-| Field                   | Required | What it does                                                                                                                   |
-| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `acme.email`            | yes      | Contact email for Let's Encrypt. Parser requires it even if every route is `none`.                                             |
-| `routes[].host`         | yes      | The `Host` header to match, e.g. `app.example.com`.                                                                            |
-| `routes[].upstream`     | yes      | `host:port` to forward to, over plain HTTP. `host.docker.internal:<port>` reaches apps on the Docker host.                     |
-| `routes[].cert_type`    | no       | `none` (HTTP only), `self_signed`, or `acme`. Defaults to `none`.                                                              |
-| `routes[].dns_provider` | no       | Only for `acme` routes. Cloudflare only for now (`zone_id` + `api_token`). Routes without one are skipped by the renewal loop. |
+| Field                   | Required | What it does                                                                                                                                                              |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `acme.email`            | yes      | Contact email for Let's Encrypt. Parser requires it even if every route is `none`. Use a real one!!!                                                                      |
+| `routes[].host`         | yes      | The `Host` header to match, e.g. `app.example.com`.                                                                                                                       |
+| `routes[].upstream`     | yes      | `host:port` to forward to, over plain HTTP. `host.docker.internal:<port>` reaches apps on the Docker host.                                                                |
+| `routes[].cert_type`    | no       | `none` (HTTP only), `self_signed`, or `acme`. Defaults to `none`.                                                                                                         |
+| `routes[].dns_provider` | no       | Only for `acme` routes. Cloudflare only for now (`zone_id` + `api_token`, see [Cloudflare setup](#cloudflare-setup)). Routes without one are skipped by the renewal loop. |
 
 A couple of sharp edges:
 
 - `host` is an exact match. A request for `app.example.com:443` will not match a route for `app.example.com`.
-- "TLS route" means `cert_type` ≠ `none`. Those get the 301 on the HTTP listener and are served on 443 with whatever's in `CERT_DIR` (`<host>.pem` / `<host>.key`). Self-signed certs appear on boot; ACME certs come from the renewal loop (renews within 30 days of expiry).
-- Missing cert files at startup don't stop the proxy. It boots, logs a warning, serves what it can.
+- "TLS route" means `cert_type` ≠ `none`. Those get the 301 on the HTTP listener and are served on 443 with whatever's in `CERT_DIR` (`<host>.pem` / `<host>.key`). Self-signed certs are regenerated on every boot; ACME certs come from the renewal loop (renews within 30 days of expiry).
+- The proxy boots even when cert files are missing. It logs a warning and serves what it can.
+- The cert is picked by SNI. The TLS handshake only succeeds when the client sends SNI and a cert for that host exists.
+- The first ACME cert takes a few minutes. Boot tick writes the TXT record, then a tick every 2 minutes finalizes once the record resolves. Until it lands the host is unreachable: HTTP still 301s to HTTPS, and HTTPS has nothing to serve yet.
+- It always talks to Let's Encrypt production, no staging, and agrees to their terms for you. Mind the rate limits while testing.
+- No `X-Forwarded-For` / `X-Forwarded-Proto` headers are added. The upstream sees the proxy as the client.
 
 ## Environment variables
 
@@ -136,10 +140,10 @@ Since this sits on the public internet:
 
 Implementation notes, for the curious:
 
-- `main()` is synchronous. Pingora owns its own Tokio runtime; the binary loads config, sorts out certs, hands over to the server loop.
-- The cert store is a `HashMap<Host, (Cert, Key)>` behind an `ArcSwap`. The renewal loop swaps new certs in atomically — no restart, no dropped connections.
+- `main()` is synchronous. Pingora has its own Tokio runtime; the binary loads config, sorts out certs, hands over to the server loop.
+- The cert store is a `HashMap<Host, (Cert, Key)>` behind an `ArcSwap`. The renewal loop swaps new certs in atomically, no restart.
 - ACME account credentials persist in `CERT_DIR/acme_account`. A restart reuses the account, doesn't re-register.
-- The renewal loop runs in two stages per host: tick _N_ creates the order and writes the DNS-01 TXT record; tick _N_+1 marks the challenge ready, finalizes, swaps the cert in. Dead orders get dropped and retried later.
+- The renewal loop runs in two stages per host: first tick creates the order and writes the DNS-01 TXT record; later ticks (every 2 minutes while pending) wait until the TXT record resolves, then mark the challenge ready, finalize, swap the cert in. Dead orders get dropped and retried later. Pending orders live in memory, so a restart before it finalizes just starts a fresh order.
 
 ## Roadmap
 
@@ -164,3 +168,26 @@ The code is mine. If you find a bug, that's on me.
 
 - **Open an issue first.** I'd rather talk through what you want and how before reviewing a PR that already fixes a problem.
 - **No AI-written code.** The Rust here is hand-written and I'd like it to stay that way. You can use AI to help you understand a change or clean up but I will be a bit sceptical if you have no Rust experience on your profile.
+
+## Cloudflare setup
+
+`acme` routes need two things from Cloudflare: the zone ID and an API token that can edit DNS in that zone.
+
+**Zone ID.** Domains → pick your domain → Overview. It's in the API section towards the bottom. The Account ID sits right next to it and looks the same, don't mix them up.
+
+**API token.**
+
+1. My Profile → API Tokens → Create Token.
+2. Use the "Edit zone DNS" template.
+3. Permissions: `Zone` → `DNS` → `Edit`. That's the only one needed: the proxy creates and updates records, and it calls `/zones/<zone_id>/dns_records` directly, so it needs `Edit` but not `Zone` → `Read`.
+4. Zone Resources: `Include` → `Specific zone` → your domain. Don't hand it all zones.
+5. Optional: Client IP Address Filtering to the box's public IP. If you set a TTL, renewals stop when it expires.
+6. Create, copy the token (you only see it once), put it in `api_token`.
+
+What the proxy does with it:
+
+- Writes one TXT record, `_acme-challenge.<host>`, TTL auto, not proxied, with a comment so you can spot it.
+- Keeps the record around. The next renewal updates it in place. Leave it alone.
+- The host has to live in that zone: `blog.example.com` → the `example.com` zone. No wildcards, one cert per host.
+- The token is plain text in `config.toml`. Keep that in mind.
+- DNS-01 means Let's Encrypt never connects to the box. The A record can point at a LAN IP, that's the whole point.

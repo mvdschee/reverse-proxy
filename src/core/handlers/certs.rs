@@ -22,6 +22,7 @@ use crate::{
 			acme::{create_account, create_order, init_account, load_account},
 			self_signed::create_self_signed_certificate_files,
 		},
+		dns::resolver::DnsResolver,
 		http::create_client,
 	},
 	warn,
@@ -45,7 +46,8 @@ use tokio::time;
 pub struct CertBackgroundRenewal {
 	pub certificate_configs: Vec<CertificateConfig>,
 	pub cert_account_path: CertAccountPath,
-	pub task_interval: TaskInterval,
+	pub task_interval_default: TaskInterval,
+	pub task_interval_pending: TaskInterval,
 	pub tls_store: TlsStore,
 	pub email: Email,
 	pub acme_env: AcmeEnv,
@@ -55,7 +57,8 @@ impl CertBackgroundRenewal {
 	pub fn new(
 		certificate_configs: Vec<CertificateConfig>,
 		cert_account_path: CertAccountPath,
-		task_interval: TaskInterval,
+		task_interval_default: TaskInterval,
+		task_interval_pending: TaskInterval,
 		tls_store: TlsStore,
 		email: Email,
 		acme_env: AcmeEnv,
@@ -63,7 +66,8 @@ impl CertBackgroundRenewal {
 		Self {
 			certificate_configs,
 			cert_account_path,
-			task_interval,
+			task_interval_default,
+			task_interval_pending,
 			tls_store,
 			acme_env,
 			email,
@@ -105,6 +109,15 @@ impl BackgroundService for CertBackgroundRenewal {
 			.into_iter()
 			.filter(|c| c.cert_type == CertificateType::Acme);
 
+		let dns_resolver =
+			match DnsResolver::new(ChallengePrefix::from(ACME_CHALLENGE_PREFIX.to_string())) {
+				Ok(resolver) => resolver,
+				Err(err) => {
+					error!("Failed to create DNS resolver: {err:?}");
+					return;
+				},
+			};
+
 		// mutated in the renew_host to keep track of the order state
 		let mut pending_order_urls: HashMap<Host, String> = HashMap::new();
 
@@ -114,6 +127,7 @@ impl BackgroundService for CertBackgroundRenewal {
 			for config in configs.clone() {
 				if let Err(err) = renew_host(
 					&self.tls_store,
+					&dns_resolver,
 					&account,
 					&mut pending_order_urls,
 					&http_client,
@@ -125,10 +139,16 @@ impl BackgroundService for CertBackgroundRenewal {
 				}
 			}
 
-			info!("background renewal loop sleeping for {} seconds...", *self.task_interval);
+			let interval = if pending_order_urls.is_empty() {
+				*self.task_interval_default
+			} else {
+				*self.task_interval_pending
+			};
+
+			info!("background renewal loop sleeping for {} seconds...", interval);
 
 			tokio::select! {
-				_ = tokio::time::sleep(Duration::from_secs(*self.task_interval)) => {}
+				_ = tokio::time::sleep(Duration::from_secs(interval)) => {}
 				_ = shutdown.changed() => break,
 			}
 		}
@@ -176,6 +196,7 @@ pub fn certificate_paths(host: &Host, cert_dir: &CertDir) -> Result<(KeyPath, Ce
 
 async fn renew_host(
 	tls_store: &TlsStore,
+	dns_resolver: &DnsResolver,
 	account: &Account,
 	pending_order_urls: &mut HashMap<Host, String>,
 	http_client: &Client,
@@ -248,7 +269,7 @@ async fn renew_host(
 			OrderOutcome::Waiting
 		},
 		(OrderStatus::Pending, true) => {
-			authorizations_ready(&mut order, &config.host).await?;
+			authorizations_ready(&mut order, &config.host, dns_resolver).await?;
 			finish_order(&mut order, tls_store, &config).await?
 		},
 		(OrderStatus::Ready, _) => finish_order(&mut order, tls_store, &config).await?,
@@ -366,7 +387,11 @@ async fn authorizations_dns(
 	Ok(())
 }
 
-async fn authorizations_ready(order: &mut Order, host: &Host) -> Result<()> {
+async fn authorizations_ready(
+	order: &mut Order,
+	host: &Host,
+	dns_resolver: &DnsResolver,
+) -> Result<()> {
 	info!("[{}] marking dns-01 challenges ready", host);
 
 	let mut authorizations = order.authorizations();
@@ -390,6 +415,8 @@ async fn authorizations_ready(order: &mut Order, host: &Host) -> Result<()> {
 			// no catch all to prevent introducing new status
 		}
 
+		let records = dns_resolver.lookup_text(host).await?;
+
 		let mut challenge = match authz.challenge(ChallengeType::Dns01) {
 			Some(challenge) => challenge,
 			None => {
@@ -397,12 +424,22 @@ async fn authorizations_ready(order: &mut Order, host: &Host) -> Result<()> {
 			},
 		};
 
-		challenge
-			.set_ready()
-			.await
-			.map_err(|e| Error::Certificate(format!("set challenge ready: {}", e)))?;
+		let dns_value = challenge.key_authorization().dns_value();
 
-		info!("[{}] challenge marked ready, polling", host);
+		// check if dns_value is in records if so we are allowed to continue otherwise skip
+		if records.contains(&dns_value) {
+			info!("[{}] dns value present", host);
+			challenge
+				.set_ready()
+				.await
+				.map_err(|e| Error::Certificate(format!("set challenge ready: {}", e)))?;
+
+			info!("[{}] challenge marked ready, polling", host);
+
+			continue;
+		}
+
+		return Err(Error::Certificate("dns value not present".to_string()));
 	}
 
 	Ok(())

@@ -27,7 +27,8 @@ fn main() -> Result<()> {
 		config.email,
 		config.acme_env,
 		config.routes.clone(),
-		config.task_interval,
+		config.task_interval_default,
+		config.task_interval_pending,
 	);
 	let (store, renewal) = cert_handler.run()?;
 

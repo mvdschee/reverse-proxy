@@ -1,2 +1,3 @@
 mod cloudflare;
-mod resolver;
+pub mod resolver;
+mod utils;

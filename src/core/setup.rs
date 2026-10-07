@@ -52,7 +52,8 @@ impl HandleFileSystem {
 pub struct HandleCertificates {
 	certificate_configs: Vec<CertificateConfig>,
 	cert_account_path: CertAccountPath,
-	task_interval: TaskInterval,
+	task_interval_default: TaskInterval,
+	task_interval_pending: TaskInterval,
 	email: Email,
 	acme_env: AcmeEnv,
 }
@@ -64,7 +65,8 @@ impl HandleCertificates {
 		email: Email,
 		acme_env: AcmeEnv,
 		routes: Vec<Route>,
-		task_interval: TaskInterval,
+		task_interval_default: TaskInterval,
+		task_interval_pending: TaskInterval,
 	) -> Self {
 		let certificate_configs = routes
 			.into_iter()
@@ -79,7 +81,8 @@ impl HandleCertificates {
 		Self {
 			certificate_configs,
 			cert_account_path,
-			task_interval,
+			task_interval_default,
+			task_interval_pending,
 			email,
 			acme_env,
 		}
@@ -92,7 +95,8 @@ impl HandleCertificates {
 		let renewal = CertBackgroundRenewal::new(
 			self.certificate_configs.clone(),
 			self.cert_account_path.clone(),
-			self.task_interval.clone(),
+			self.task_interval_default.clone(),
+			self.task_interval_pending.clone(),
 			store.clone(),
 			self.email.clone(),
 			self.acme_env.clone(),

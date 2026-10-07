@@ -26,7 +26,8 @@ const HTTPS_PORT_DEFAULT: u16 = 443;
 const INPUT_ADDRESS: &str = "0.0.0.0";
 
 /// in seconds
-const CERT_BACKGROUND_TASK_INTERVAL: u64 = 3600; // 1 hour
+const CERT_BACKGROUND_TASK_INTERVAL_DEFAULT: u64 = 3600; // 1 hour
+const CERT_BACKGROUND_TASK_INTERVAL_PENDING: u64 = 120; // 2 minutes
 pub const CERT_RENEWAL_TRESHOLD_DAYS: u32 = 30;
 
 impl Config {
@@ -52,7 +53,8 @@ impl Config {
 			cert_dir: CertDir::from(cert_dir),
 			cert_account_path: CertAccountPath::from(cert_account_path),
 			routes: config_file.routes.clone(),
-			task_interval: TaskInterval::from(CERT_BACKGROUND_TASK_INTERVAL),
+			task_interval_default: TaskInterval::from(CERT_BACKGROUND_TASK_INTERVAL_DEFAULT),
+			task_interval_pending: TaskInterval::from(CERT_BACKGROUND_TASK_INTERVAL_PENDING),
 			http_port: ProxyPort::from(http_port),
 			https_port: ProxyPort::from(https_port),
 			input_address: ProxyInputAddress::from(INPUT_ADDRESS.to_string()),

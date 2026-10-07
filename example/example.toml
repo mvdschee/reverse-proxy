@@ -1,5 +1,5 @@
 [acme]
-email       = "max@example.com" # use a real email this will fail the even on local testing
+email       = "max@example.com" # use a real one, Let's Encrypt rejects example.com, even for local testing
 
 [[routes]]
 host        = "git.example.com"
@@ -11,17 +11,18 @@ host        = "test.example.com"
 upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
 cert_type   = "none"             # default is "none"
 
-# acme needs a dns provider for the DNS-01 challenge. the background renewal
-# loop skips acme routes that have none. cert_type = "acme" is still WIP:
-# the order is created and the dns provider is in, but the challenge is never
-# finalized, so no cert is issued yet.
+# acme gets a legit Let's Encrypt cert through the DNS-01 challenge, so the box
+# can stay off the internet: point blog.example.com at a LAN IP and it still works.
+# the renewal loop only picks up acme routes with a dns provider. it orders the
+# cert, writes the TXT record, and swaps the cert in once the record resolves.
+# no restart needed.
 [[routes]]
 host        = "blog.example.com"
 upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
 cert_type   = "acme"
 
-# which dns provider to use for the DNS-01 challenge. cloudflare is the only
-# one for now. the challenge prefix is always _acme-challenge. and fixed.
+# the dns provider for the DNS-01 challenge. cloudflare is the only one for now.
+# the challenge record is always _acme-challenge.<host>.
 [routes.dns_provider.cloudflare]
 zone_id   = "your-cloudflare-zone-id"
 api_token = "your-cloudflare-api-token"

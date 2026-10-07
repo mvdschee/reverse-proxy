@@ -5,6 +5,7 @@ use crate::{
 		routes::Host,
 	},
 	info,
+	services::dns::utils::create_txt_key,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -122,7 +123,7 @@ impl Cloudflare {
 			HeaderValue::from_str("application/json").map_err(|e| Error::Dns(e.to_string()))?,
 		);
 
-		let challenge_prefix = format!("{}{}", self.challenge_prefix, self.host);
+		let challenge_prefix = create_txt_key(&self.host, &self.challenge_prefix);
 
 		let json = &serde_json::json!({
 			"type": "TXT",
@@ -171,7 +172,7 @@ impl Cloudflare {
 			HeaderValue::from_str("application/json").map_err(|e| Error::Dns(e.to_string()))?,
 		);
 
-		let challenge_prefix = format!("{}{}", self.challenge_prefix, self.host);
+		let challenge_prefix = create_txt_key(&self.host, &self.challenge_prefix);
 
 		let json = &serde_json::json!({
 			"type": "TXT",
