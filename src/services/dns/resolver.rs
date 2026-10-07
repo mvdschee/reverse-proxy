@@ -1,11 +1,9 @@
-use crate::Error;
-use crate::Result;
-use crate::core::models::dns::ChallengePrefix;
-use crate::core::models::routes::Host;
-use crate::services::dns::utils::create_txt_key;
-use hickory_resolver::Resolver;
-use hickory_resolver::config::*;
-use hickory_resolver::net::runtime::TokioRuntimeProvider;
+use crate::{
+	Error, Result,
+	core::models::{dns::ChallengePrefix, routes::Host},
+	services::dns::utils::create_txt_key,
+};
+use hickory_resolver::{Resolver, config::*, net::runtime::TokioRuntimeProvider};
 
 pub struct DnsResolver {
 	pub resolver: Resolver<TokioRuntimeProvider>,
