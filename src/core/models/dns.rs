@@ -1,6 +1,4 @@
-use crate::{
-	Error, Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, string_newtype,
-};
+use crate::{Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, string_newtype};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
@@ -12,12 +10,13 @@ pub trait DnsProvider {
 	async fn upsert_challenge_record(&self, dns_value: String) -> Result<Record>;
 }
 
-pub fn default_challenge_prefix() -> String {
-	ACME_CHALLENGE_PREFIX.to_string()
+pub fn default_challenge_prefix() -> ChallengePrefix {
+	ChallengePrefix::from(ACME_CHALLENGE_PREFIX.to_string())
 }
 
 // --- DNS Record ---
 pub struct Record {
+	#[expect(dead_code, reason = "used later to update/delete the record")]
 	pub provider_id: RecordId,
 	pub name: String,
 	pub value: String,

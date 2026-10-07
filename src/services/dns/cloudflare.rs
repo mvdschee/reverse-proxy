@@ -1,52 +1,47 @@
 use crate::{
 	Error, Result,
-	core::models::{
-		dns::{Cloudflare, DnsProvider, Record, RecordId, default_challenge_prefix},
-		routes::Host,
-	},
+	core::models::dns::{Cloudflare, DnsProvider, Record, RecordId},
 	info,
 	services::dns::utils::create_txt_key,
 };
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use http::HeaderValue;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 const API_BASE: &str = "https://api.cloudflare.com/client/v4";
 
 /// CloudflareResponse can be used for both Vec<DnsRecord> or DnsRecord
 #[derive(Debug, Deserialize)]
 pub struct CloudflareResponse<T> {
-	#[serde(default)]
-	pub errors: Vec<CloudflareMessage>,
-	#[serde(default)]
-	pub messages: Vec<CloudflareMessage>,
-	pub success: bool,
+	// #[serde(default)]
+	// pub errors: Vec<CloudflareMessage>,
+	// #[serde(default)]
+	// pub messages: Vec<CloudflareMessage>,
+	// pub success: bool,
 	pub result: T,
 }
 
 // some fields are skipped that provides nothing
-#[derive(Debug, Deserialize)]
-pub struct CloudflareMessage {
-	pub code: u32,
-	pub message: String,
-	pub documentation_url: Option<String>,
-}
+// #[derive(Debug, Deserialize)]
+// pub struct CloudflareMessage {
+// 	pub code: u32,
+// 	pub message: String,
+// 	pub documentation_url: Option<String>,
+// }
 
 // some fields are skipped that provides nothing
 #[derive(Debug, Deserialize)]
 pub struct DnsRecord {
 	pub id: String,
 	pub name: String,
-	#[serde(rename = "type")]
-	pub record_type: String,
+	// #[serde(rename = "type")]
+	// pub record_type: String,
 	pub content: String,
-	pub ttl: u32,
-	pub proxied: bool,
-	pub comment: Option<String>,
-	pub created_on: DateTime<Utc>,
-	pub modified_on: DateTime<Utc>,
+	// pub ttl: u32,
+	// pub proxied: bool,
+	// pub comment: Option<String>,
+	// pub created_on: DateTime<Utc>,
+	// pub modified_on: DateTime<Utc>,
 }
 
 #[async_trait]

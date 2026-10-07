@@ -2,10 +2,7 @@ use crate::{
 	Error, Result,
 	core::{
 		handlers::{
-			certs::{
-				CertBackgroundRenewal, certificate_paths, create_self_signed_certs, load_tls_store,
-			},
-			filesystem::{check_file_exists, safe_path},
+			certs::{CertBackgroundRenewal, create_self_signed_certs, load_tls_store},
 			proxy::run_proxy,
 		},
 		models::{
@@ -18,7 +15,7 @@ use crate::{
 			tasks::TaskInterval,
 		},
 	},
-	error, info, warn,
+	info,
 };
 use std::path::Path;
 

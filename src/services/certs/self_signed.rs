@@ -1,10 +1,7 @@
 use crate::{
 	Error, Result,
 	core::{
-		handlers::{
-			certs::certificate_paths,
-			filesystem::{safe_path, write_file},
-		},
+		handlers::{certs::certificate_paths, filesystem::write_file},
 		models::certs::CertificateConfig,
 	},
 	info,

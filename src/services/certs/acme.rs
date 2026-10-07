@@ -1,10 +1,6 @@
 use crate::{
 	Error, Result,
-	core::models::{
-		certs::{CertificateConfig, Email},
-		config::AcmeEnv,
-		routes::Host,
-	},
+	core::models::{certs::Email, config::AcmeEnv, routes::Host},
 	info,
 };
 use instant_acme::{
@@ -13,7 +9,7 @@ use instant_acme::{
 use rustls::crypto::CryptoProvider;
 
 pub fn init_account() {
-	CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
+	let _ = CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
 }
 
 pub async fn load_account(credentials: AccountCredentials) -> Result<Account> {
@@ -34,8 +30,6 @@ pub async fn create_account(
 	email: &Email,
 	acme_env: &AcmeEnv,
 ) -> Result<(Account, AccountCredentials)> {
-	CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider());
-
 	let url = if acme_env.as_str() == "production" {
 		info!("Using production ACME server");
 		LetsEncrypt::Production.url().to_owned()

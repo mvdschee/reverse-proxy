@@ -6,7 +6,6 @@ use crate::services::dns::utils::create_txt_key;
 use hickory_resolver::Resolver;
 use hickory_resolver::config::*;
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
-use std::net::*;
 
 pub struct DnsResolver {
 	pub resolver: Resolver<TokioRuntimeProvider>,

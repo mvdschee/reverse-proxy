@@ -1,7 +1,7 @@
 use crate::{
 	Error, Result,
 	core::{
-		handlers::{certs::CertBackgroundRenewal, filesystem::read_file},
+		handlers::certs::CertBackgroundRenewal,
 		models::{
 			certs::{TlsMaterial, TlsStore},
 			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap},
@@ -9,7 +9,6 @@ use crate::{
 	},
 	error,
 };
-use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use http::header;
 use pingora::{

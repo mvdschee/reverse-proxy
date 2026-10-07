@@ -1,6 +1,6 @@
 use crate::{
 	Error, Result,
-	config::{ACME_CHALLENGE_PREFIX, CERT_RENEWAL_TRESHOLD_DAYS},
+	config::CERT_RENEWAL_TRESHOLD_DAYS,
 	core::{
 		handlers::filesystem::{check_file_exists, read_file, safe_path, write_file},
 		models::{
@@ -10,7 +10,8 @@ use crate::{
 			},
 			config::AcmeEnv,
 			dns::{
-				ChallengePrefix, Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail,
+				Cloudflare, CloudflareProvider, DnsProvider, ProviderCredentail,
+				default_challenge_prefix,
 			},
 			routes::Host,
 			tasks::TaskInterval,
@@ -31,14 +32,12 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use boring::asn1::Asn1Time;
 use instant_acme::{
-	Account, AccountCredentials, AuthorizationStatus, ChallengeType, Identifier, NewOrder, Order,
-	OrderStatus, RetryPolicy,
+	Account, AccountCredentials, AuthorizationStatus, ChallengeType, Order, OrderStatus,
+	RetryPolicy,
 };
 use pingora::{server::ShutdownWatch, services::background::BackgroundService, tls};
-use rcgen::{CertifiedKey, generate_simple_self_signed};
 use reqwest::Client;
-use std::{collections::HashMap, fs, sync::Arc, time::Duration};
-use tokio::time;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// ------------------------------
 /// Main background cert loop
@@ -108,15 +107,13 @@ impl BackgroundService for CertBackgroundRenewal {
 			.clone()
 			.into_iter()
 			.filter(|c| c.cert_type == CertificateType::Acme);
-
-		let dns_resolver =
-			match DnsResolver::new(ChallengePrefix::from(ACME_CHALLENGE_PREFIX.to_string())) {
-				Ok(resolver) => resolver,
-				Err(err) => {
-					error!("Failed to create DNS resolver: {err:?}");
-					return;
-				},
-			};
+		let dns_resolver = match DnsResolver::new(default_challenge_prefix()) {
+			Ok(resolver) => resolver,
+			Err(err) => {
+				error!("Failed to create DNS resolver: {err:?}");
+				return;
+			},
+		};
 
 		// mutated in the renew_host to keep track of the order state
 		let mut pending_order_urls: HashMap<Host, String> = HashMap::new();
@@ -371,7 +368,7 @@ async fn authorizations_dns(
 			// no catch all to prevent introducing new status
 		}
 
-		let mut challenge = match authz.challenge(ChallengeType::Dns01) {
+		let challenge = match authz.challenge(ChallengeType::Dns01) {
 			Some(challenge) => challenge,
 			None => {
 				return Err(Error::Certificate("no dns01 challenge found".to_string()));
@@ -454,7 +451,7 @@ fn get_dns_services(config: ProviderCredentail, client: Client, host: Host) -> i
 				zone_id: config.zone_id,
 				api_token: config.api_token,
 			},
-			challenge_prefix: ChallengePrefix::from(ACME_CHALLENGE_PREFIX.to_string()),
+			challenge_prefix: default_challenge_prefix(),
 		},
 	}
 }
@@ -500,7 +497,7 @@ pub fn create_self_signed_certs(certificate_configs: &Vec<CertificateConfig>) ->
 			// self signed certificates are good until the year 4096
 			// this will be replace every restart so it's safe to keep using the default setting
 			// for selfsigned we will create the certs here right away
-			create_self_signed_certificate_files(config);
+			create_self_signed_certificate_files(config)?;
 		}
 	}
 

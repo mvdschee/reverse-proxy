@@ -14,8 +14,8 @@ panic = "abort"
 [lints.rust]
 unsafe_code = "forbid"
 # while developing, allow dead code and unused imports/variables
-dead_code = { level = "allow", priority = -1 }
-unused = { level = "allow", priority = -1 }
+# dead_code = { level = "allow", priority = -1 }
+# unused = { level = "allow", priority = -1 }
 
 [dependencies]
 # Async

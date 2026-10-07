@@ -1,12 +1,7 @@
 use crate::{
-	core::models::{
-		certs::CertDir,
-		filesystem::SafePath,
-		routes::{Host, Upstream},
-	},
+	core::models::routes::{Host, Upstream},
 	string_newtype,
 };
-use http::{Response, StatusCode, header};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 pub type ProxyRouteMap = Arc<HashMap<Host, ProxyRoute>>;
