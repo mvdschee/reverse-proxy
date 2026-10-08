@@ -107,7 +107,7 @@ An `[acme]` table and a list of `[[routes]]`. Full annotated schema: [`example/e
 A couple of sharp edges:
 
 - `host` is an exact match. A request for `app.example.com:443` will not match a route for `app.example.com`.
-- "TLS route" means `cert_type` ≠ `none`. Those get the 301 on the HTTP listener and are served on 443 with whatever's in `CERT_DIR` (`<host>.pem` / `<host>.key`). Self-signed certs are regenerated on every boot; ACME certs come from the renewal loop (renews within 30 days of expiry).
+- "TLS route" means `cert_type` ≠ `none`. Those get the 301 on the HTTP listener and are served on 443 with whatever's in `CERT_DIR` (`<host>.<cert_type>.pem` / `<host>.<cert_type>.key`, e.g. `app.example.com.acme.pem`). Each cert type has its own files, so switching a route's `cert_type` never reuses the other type's cert. Self-signed certs are regenerated on every boot; ACME certs come from the renewal loop (renews within 30 days of expiry).
 - The proxy boots even when cert files are missing. It logs a warning and serves what it can.
 - The cert is picked by SNI. The TLS handshake only succeeds when the client sends SNI and a cert for that host exists.
 - The first ACME cert takes a few minutes. Boot tick writes the TXT record, then a tick every 2 minutes finalizes once the record resolves. Until it lands the host is unreachable: HTTP still 301s to HTTPS, and HTTPS has nothing to serve yet.

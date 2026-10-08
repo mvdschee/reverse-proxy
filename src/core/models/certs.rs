@@ -35,6 +35,8 @@ pub enum OrderOutcome {
 
 pub struct TlsMaterial {
 	pub cert: X509,
+	// intermediates certs for non browser based clients
+	pub chain: Vec<X509>,
 	pub key: PKey<Private>,
 }
 
@@ -42,6 +44,7 @@ impl Clone for TlsMaterial {
 	fn clone(&self) -> Self {
 		Self {
 			cert: self.cert.to_owned(),
+			chain: self.chain.to_owned(),
 			key: self.key.to_owned(),
 		}
 	}

@@ -5,8 +5,8 @@ use crate::{
 		handlers::filesystem::{check_file_exists, read_file, safe_path, write_file},
 		models::{
 			certs::{
-				CertAccountPath, CertDir, CertPath, CertificateConfig, CertificateType, Email,
-				KeyPath, OrderOutcome, TlsMaterial, TlsStore,
+				CertAccountPath, CertPath, CertificateConfig, CertificateType, Email, KeyPath,
+				OrderOutcome, TlsMaterial, TlsStore,
 			},
 			config::AcmeEnv,
 			dns::{
@@ -169,24 +169,42 @@ pub fn swap_store(store: &TlsStore, host: Host, key_bytes: &[u8], cert_bytes: &[
 }
 
 pub fn parse_certificates(cert_bytes: &[u8], key_bytes: &[u8]) -> Result<TlsMaterial> {
-	let cert = tls::x509::X509::from_pem(cert_bytes)
-		.map_err(|e| Error::Certificate(format!("Failed to parse certificate: {}", e)))?;
+	// the PEM can be a full chain, the first cert is for the domain the rest are intermediates
+	let mut certs = tls::x509::X509::stack_from_pem(cert_bytes)
+		.map_err(|e| Error::Certificate(format!("Failed to parse certificate: {}", e)))?
+		.into_iter();
+
+	let cert = certs
+		.next()
+		.ok_or_else(|| Error::Certificate("No certificate found in PEM".to_string()))?;
+	let chain = certs.collect();
 
 	let key = tls::pkey::PKey::private_key_from_pem(key_bytes)
 		.map_err(|e| Error::Certificate(format!("Failed to parse private key: {}", e)))?;
 
 	Ok(TlsMaterial {
 		cert,
+		chain,
 		key,
 	})
 }
 
-pub fn certificate_paths(host: &Host, cert_dir: &CertDir) -> Result<(KeyPath, CertPath)> {
-	let cert_filename = format!("{}.pem", host);
-	let key_filename = format!("{}.key", host);
+// each cert get a suffix to prevent you from never getting a new certificate when switching
+// between self-signed and acme
+pub fn certificate_paths(config: &CertificateConfig) -> Result<(KeyPath, CertPath)> {
+	let suffix = match config.cert_type {
+		CertificateType::SelfSigned => "self_signed",
+		CertificateType::Acme => "acme",
+		CertificateType::None => {
+			return Err(Error::Certificate(format!("No certificate files for {}", config.host)));
+		},
+	};
 
-	let key_path = safe_path(cert_dir, &key_filename)?;
-	let cert_path = safe_path(cert_dir, &cert_filename)?;
+	let cert_filename = format!("{}.{}.pem", config.host, suffix);
+	let key_filename = format!("{}.{}.key", config.host, suffix);
+
+	let key_path = safe_path(&config.cert_dir, &key_filename)?;
+	let cert_path = safe_path(&config.cert_dir, &cert_filename)?;
 
 	Ok((key_path, cert_path))
 }
@@ -322,7 +340,7 @@ async fn finish_order(
 
 	info!("[{}] certificate issued", config.host);
 
-	let (key_path, cert_path) = certificate_paths(&config.host, &config.cert_dir)?;
+	let (key_path, cert_path) = certificate_paths(config)?;
 
 	write_file(key_path, private_key_pem.as_bytes())?;
 	write_file(cert_path, cert_chain_pem.as_bytes())?;
@@ -509,7 +527,7 @@ pub fn load_tls_store(certificate_configs: &Vec<CertificateConfig>) -> Result<Tl
 
 	for config in certificate_configs {
 		if config.cert_type != CertificateType::None {
-			let (key_path, cert_path) = certificate_paths(&config.host, &config.cert_dir)?;
+			let (key_path, cert_path) = certificate_paths(config)?;
 
 			let has_tls_files = check_file_exists(&key_path) && check_file_exists(&cert_path);
 

@@ -13,7 +13,7 @@ pub fn create_self_signed_certificate_files(config: &CertificateConfig) -> Resul
 
 	let subject_alt_names = vec![config.host.to_string()];
 
-	let (key_path, cert_path) = certificate_paths(&config.host, &config.cert_dir)?;
+	let (key_path, cert_path) = certificate_paths(config)?;
 
 	let CertifiedKey {
 		cert,

@@ -198,6 +198,7 @@ impl TlsAccept for CertResolver {
 
 		let Some(TlsMaterial {
 			cert,
+			chain,
 			key,
 		}) = certs.get(sni_provided.as_str())
 		else {
@@ -209,6 +210,14 @@ impl TlsAccept for CertResolver {
 			error!("Failed to use certificate for SNI {}: {}", sni_provided, e);
 			return;
 		}
+
+		for intermediate in chain {
+			if let Err(e) = tls::ext::ssl_add_chain_cert(ssl, intermediate) {
+				error!("Failed to add chain certificate for SNI {}: {}", sni_provided, e);
+				return;
+			}
+		}
+
 		if let Err(e) = tls::ext::ssl_use_private_key(ssl, key) {
 			error!("Failed to use private key for SNI {}: {}", sni_provided, e);
 			return;
