@@ -1,6 +1,8 @@
-use crate::{Error, Result, core::models::filesystem::SafePath};
+use crate::{Error, Result, config::FILE_PERMISSION, core::models::filesystem::SafePath};
 use std::{
 	fs,
+	io::Write,
+	os::unix::fs::{OpenOptionsExt, PermissionsExt},
 	path::{Component, Path, PathBuf},
 };
 
@@ -14,7 +16,21 @@ pub fn write_file(file_path: SafePath, content: &[u8]) -> Result<()> {
 		return Err(Error::FileSystem(format!("Parent directory {:?} does not exist", parent)));
 	}
 
-	fs::write(file_path.as_str(), content)
+	// written files are certificates and accounts in the certs directory
+	// for safty we use 0600 (owner only read/write) as read/write permission
+	let mut file = fs::OpenOptions::new()
+		.write(true)
+		.create(true)
+		.truncate(true)
+		.mode(FILE_PERMISSION)
+		.open(file_path.as_str())
+		.map_err(|e| Error::FileSystem(format!("Failed to open {}: {}", file_path, e)))?;
+
+	file.set_permissions(fs::Permissions::from_mode(FILE_PERMISSION)).map_err(|e| {
+		Error::FileSystem(format!("Failed to set permissions {}: {}", file_path, e))
+	})?;
+
+	file.write_all(content)
 		.map_err(|e| Error::FileSystem(format!("Failed to write {}: {}", file_path, e)))?;
 
 	Ok(())
