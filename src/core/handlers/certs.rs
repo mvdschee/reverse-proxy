@@ -100,20 +100,6 @@ impl BackgroundService for CertBackgroundRenewal {
 			},
 		};
 
-		let account = match resolve_acme_account(
-			&self.cert_account_path,
-			&self.email,
-			&self.acme_env,
-		)
-		.await
-		{
-			Ok(account) => account,
-			Err(err) => {
-				error!("Failed to resolve ACME account: {err:?}");
-				return;
-			},
-		};
-
 		let dns_resolver = match DnsResolver::new(default_challenge_prefix()) {
 			Ok(resolver) => resolver,
 			Err(err) => {
@@ -124,26 +110,41 @@ impl BackgroundService for CertBackgroundRenewal {
 
 		// mutated in the renew_host to keep track of the order state
 		let mut pending_order_urls: HashMap<Host, String> = HashMap::new();
+		// store account outside of loop
+		let mut account: Option<Account> = None;
 
 		loop {
 			info!("renewal loop: {} ACME hosts", configs.len());
 
-			for config in &configs {
-				if let Err(err) = renew_host(
-					&self.tls_store,
-					&dns_resolver,
-					&account,
-					&mut pending_order_urls,
-					&http_client,
-					config.clone(),
-				)
-				.await
+			if account.is_none() {
+				match resolve_acme_account(&self.cert_account_path, &self.email, &self.acme_env)
+					.await
 				{
-					error!("renewal failed for {}: {err:?}", config.host);
+					Ok(acc) => account = Some(acc),
+					Err(err) => {
+						error!("Failed to resolve ACME account: {err:?}");
+					},
+				};
+			}
+
+			if let Some(account) = &account {
+				for config in &configs {
+					if let Err(err) = renew_host(
+						&self.tls_store,
+						&dns_resolver,
+						account,
+						&mut pending_order_urls,
+						&http_client,
+						config.clone(),
+					)
+					.await
+					{
+						error!("renewal failed for {}: {err:?}", config.host);
+					}
 				}
 			}
 
-			let interval = if pending_order_urls.is_empty() {
+			let interval = if account.is_some() && pending_order_urls.is_empty() {
 				*self.task_interval_default
 			} else {
 				*self.task_interval_pending
