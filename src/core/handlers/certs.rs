@@ -498,7 +498,8 @@ async fn resolve_acme_account(
 	// set crypto lib to load/create the account
 	init_account();
 
-	if let Ok(credentials) = get_acme_account(cert_account_path) {
+	if check_file_exists(cert_account_path) {
+		let credentials = get_acme_account(cert_account_path)?;
 		warn!("loading the previouse account, this skip the ACME_ENV value");
 		warn!("remove acme_account in your cert folder if this is not what you want");
 		return load_account(credentials).await;
@@ -512,12 +513,15 @@ async fn resolve_acme_account(
 	Ok(account)
 }
 
-// any erorr one this part we will simply create a new account
 fn get_acme_account(cert_account_path: &CertAccountPath) -> Result<AccountCredentials> {
 	let raw_content = read_file(cert_account_path)?;
 
-	serde_json::from_slice(&raw_content)
-		.map_err(|e| Error::Acme(format!("Failed to parse ACME account: {}", e)))
+	serde_json::from_slice(&raw_content).map_err(|e| {
+		Error::Acme(format!(
+			"Failed to parse ACME account: {}, delete {} to register a new one",
+			e, cert_account_path
+		))
+	})
 }
 
 // ------------------------------
