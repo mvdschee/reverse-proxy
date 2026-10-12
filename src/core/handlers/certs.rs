@@ -190,6 +190,14 @@ pub fn parse_certificates(cert_bytes: &[u8], key_bytes: &[u8]) -> Result<TlsMate
 	let key = tls::pkey::PKey::private_key_from_pem(key_bytes)
 		.map_err(|e| Error::Certificate(format!("Failed to parse private key: {}", e)))?;
 
+	let pub_key = cert
+		.public_key()
+		.map_err(|e| Error::Certificate(format!("Failed to get public key: {}", e)))?;
+
+	if !pub_key.public_eq(&key) {
+		return Err(Error::Certificate("Public key does not match private key".to_string()));
+	}
+
 	Ok(TlsMaterial {
 		cert,
 		chain,
@@ -546,10 +554,29 @@ pub fn load_tls_store(certificate_configs: &Vec<CertificateConfig>) -> Result<Tl
 				continue;
 			}
 
-			let cert_bytes = read_file(&cert_path)?;
-			let key_bytes = read_file(&key_path)?;
+			let cert_bytes = match read_file(&cert_path) {
+				Ok(cert_bytes) => cert_bytes,
+				Err(e) => {
+					error!("failed to read cert file for {}: {}", &config.host, e);
+					continue;
+				},
+			};
 
-			let tls = parse_certificates(&cert_bytes, &key_bytes)?;
+			let key_bytes = match read_file(&key_path) {
+				Ok(key_bytes) => key_bytes,
+				Err(e) => {
+					error!("failed to read key file for {}: {}", &config.host, e);
+					continue;
+				},
+			};
+
+			let tls = match parse_certificates(&cert_bytes, &key_bytes) {
+				Ok(tls) => tls,
+				Err(e) => {
+					error!("failed to parse certs for {}: {}", &config.host, e);
+					continue;
+				},
+			};
 
 			tls_certs.insert(config.host.clone(), tls);
 		}
