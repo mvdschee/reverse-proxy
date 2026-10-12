@@ -9,6 +9,7 @@ use http::HeaderValue;
 use serde::Deserialize;
 
 const API_BASE: &str = "https://api.cloudflare.com/client/v4";
+const RECORD_COMMENT: &str = "managed by reverse-proxy (acme dns-01), do not edit";
 
 /// CloudflareResponse can be used for both Vec<DnsRecord> or DnsRecord
 #[derive(Debug, Deserialize)]
@@ -39,7 +40,7 @@ pub struct DnsRecord {
 	pub content: String,
 	// pub ttl: u32,
 	// pub proxied: bool,
-	// pub comment: Option<String>,
+	pub comment: Option<String>,
 	// pub created_on: DateTime<Utc>,
 	// pub modified_on: DateTime<Utc>,
 }
@@ -98,8 +99,13 @@ impl Cloudflare {
 		let result: CloudflareResponse<Vec<DnsRecord>> =
 			serde_json::from_str(&response).map_err(|e| Error::Dns(format!("serde_json {}", e)))?;
 
-		// get first item from results and than get record_id
-		let record_id = result.result.first().map(|record| RecordId::from(record.id.clone()));
+		// extra filter on comment
+		// this should prevent an issue with multiple acme records
+		let record_id = result
+			.result
+			.iter()
+			.find(|record| record.comment.as_deref() == Some(RECORD_COMMENT))
+			.map(|record| RecordId::from(record.id.clone()));
 
 		Ok(record_id)
 	}
@@ -126,7 +132,7 @@ impl Cloudflare {
 			"content": dns_value,
 			"ttl": 1,
 			"proxied": false,
-			"comment": "automated with reverse-proxy. don't touch :pray:"
+			"comment": RECORD_COMMENT
 		});
 
 		let url = format!("{}/zones/{}/dns_records", API_BASE, self.config.zone_id);
@@ -175,7 +181,7 @@ impl Cloudflare {
 			"content": dns_value,
 			"ttl": 1,
 			"proxied": false,
-			"comment": "automated with reverse-proxy. don't touch :pray:"
+			"comment": RECORD_COMMENT
 		});
 
 		let url = format!("{}/zones/{}/dns_records/{}", API_BASE, self.config.zone_id, record_id);
