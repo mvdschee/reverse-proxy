@@ -111,17 +111,19 @@ A couple of sharp edges:
 - The proxy boots even when cert files are missing. It logs a warning and serves what it can.
 - The cert is picked by SNI. The TLS handshake only succeeds when the client sends SNI and a cert for that host exists.
 - The first ACME cert takes a few minutes. Boot tick writes the TXT record, then a tick every 2 minutes finalizes once the record resolves. Until it lands the host is unreachable: HTTP still 301s to HTTPS, and HTTPS has nothing to serve yet.
-- It always talks to Let's Encrypt production, no staging, and agrees to their terms for you. Mind the rate limits while testing.
+- It talks to Let's Encrypt production by default and agrees to their terms for you. Set `ACME_ENV=staging` while testing to stay clear of the production rate limits.
+- The ACME account is tied to the environment it was created in. Once `acme_account` exists, `ACME_ENV` is ignored. Delete `acme_account` to switch between staging and production.
 - No `X-Forwarded-For` / `X-Forwarded-Proto` headers are added. The upstream sees the proxy as the client.
 
 ## Environment variables
 
-| Variable      | Binary default | In the image             | What it does                                                 |
+| Variable      | Binary default | In the image             | Notes                                                        |
 | ------------- | -------------- | ------------------------ | ------------------------------------------------------------ |
-| `CONFIG_PATH` | _none, exits_  | `/etc/proxy/config.toml` | Path to the TOML config. Binary exits without one.           |
+| `CONFIG_PATH` | _none, exits_  | `/etc/proxy/config.toml` | Path to the TOML config.                                     |
 | `CERT_DIR`    | `.certs/`      | `/var/lib/proxy/certs`   | Where certs and the ACME account file (`acme_account`) live. |
 | `HTTP_PORT`   | `80`           | `8080`                   | Port for the HTTP listener.                                  |
 | `HTTPS_PORT`  | `443`          | `8443`                   | Port for the HTTPS listener.                                 |
+| `ACME_ENV`    | `production`   | `production`             | `production` or `staging`. Other values get rejected         |
 
 The image bakes in the right-hand column (Dockerfile sets all four), so the compose file above doesn't repeat them. Listeners always bind `0.0.0.0`.
 

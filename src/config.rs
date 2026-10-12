@@ -47,6 +47,13 @@ impl Config {
 			.unwrap_or(HTTPS_PORT_DEFAULT);
 
 		let acme_env = load_env(ACME_ENV).unwrap_or_else(|_| ACME_ENV_DEFAULT.to_string());
+		// a typo would silently fall back to staging and issue untrusted certs
+		if acme_env != "production" && acme_env != "staging" {
+			return Err(Error::Config(format!(
+				"{} must be \"production\" or \"staging\", got \"{}\"",
+				ACME_ENV, acme_env
+			)));
+		}
 
 		Ok(Config {
 			email: config_file.acme.email.clone(),
