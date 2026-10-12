@@ -80,6 +80,18 @@ impl BackgroundService for CertBackgroundRenewal {
 	// this means we have to be a little more verbose with our error handeling.
 	// TLDR; just continue on any error :D, problem for the next loop :')
 	async fn start(&self, mut shutdown: ShutdownWatch) {
+		let configs: Vec<CertificateConfig> = self
+			.certificate_configs
+			.iter()
+			.filter(|c| c.cert_type == CertificateType::Acme)
+			.cloned()
+			.collect();
+
+		if configs.iter().all(|config| config.provider_config.is_none()) {
+			warn!("No ACME certificates configured, skipping ACME renewal loop");
+			return;
+		}
+
 		let http_client = match create_client() {
 			Ok(client) => client,
 			Err(e) => {
@@ -102,11 +114,6 @@ impl BackgroundService for CertBackgroundRenewal {
 			},
 		};
 
-		let configs = self
-			.certificate_configs
-			.clone()
-			.into_iter()
-			.filter(|c| c.cert_type == CertificateType::Acme);
 		let dns_resolver = match DnsResolver::new(default_challenge_prefix()) {
 			Ok(resolver) => resolver,
 			Err(err) => {
@@ -119,9 +126,9 @@ impl BackgroundService for CertBackgroundRenewal {
 		let mut pending_order_urls: HashMap<Host, String> = HashMap::new();
 
 		loop {
-			info!("renewal loop: {} ACME hosts", configs.clone().count());
+			info!("renewal loop: {} ACME hosts", configs.len());
 
-			for config in configs.clone() {
+			for config in &configs {
 				if let Err(err) = renew_host(
 					&self.tls_store,
 					&dns_resolver,
