@@ -1,15 +1,13 @@
-use crate::{
-	config::Config,
-	core::{
-		models::proxy::ProxyConfig,
-		setup::{HandleCertificates, HandleFileSystem, HandleProxy},
-	},
+use crate::core::{
+	models::{config::Config, proxy::ProxyConfig},
+	setup::{HandleCertificates, HandleFileSystem, HandleProxy},
 };
 pub use error::{Error, Result};
 
 mod config;
 mod core;
 pub mod error;
+mod services;
 mod utils;
 
 // entry needs to be synchronous as pingora has there own
@@ -25,21 +23,23 @@ fn main() -> Result<()> {
 	// and spin up background tasks to refresh certificates
 	let cert_handler = HandleCertificates::new(
 		config.cert_dir.clone(),
+		config.cert_account_path.clone(),
 		config.email,
+		config.acme_env,
 		config.routes.clone(),
-		config.task_interval,
+		config.task_interval_default,
+		config.task_interval_pending,
 	);
-	cert_handler.run()?;
+	let (store, renewal) = cert_handler.run()?;
 
 	// start the proxy
 	let proxy_config = ProxyConfig {
-		cert_dir: config.cert_dir.clone(),
 		http_port: config.http_port,
 		https_port: config.https_port,
 		input_address: config.input_address,
 	};
-	let proxy_handler = HandleProxy::new(proxy_config, config.routes)?;
-	proxy_handler.run()?;
+	let proxy_handler = HandleProxy::new(proxy_config, config.routes, store)?;
+	proxy_handler.run(renewal)?;
 
 	Err(Error::MainLoopClosed)
 }

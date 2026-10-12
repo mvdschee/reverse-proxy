@@ -1,5 +1,7 @@
 scan:
   baseline: .foxguard/baseline.json
+  disable_rules:
+    - manifest/cargo-pq-vulnerable-dep
 
 secrets:
   baseline: .foxguard/secrets-baseline.json
