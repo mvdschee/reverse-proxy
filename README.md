@@ -2,7 +2,7 @@
 
 A single-binary reverse proxy for self-hosting. One TOML file declares your routes; it handles TLS termination and forwarding from there. Built on [Pingora](https://github.com/cloudflare/pingora) + BoringSSL, ships as a hardened container image (non-root, read-only rootfs, no shell).
 
-<p align="center"><img src="reverse-proxy.jpg" alt="A request flowing through the proxy" /></p>
+<p align="center"><img src="reverse-proxy.png" alt="" /></p>
 
 ## Why
 
