@@ -86,6 +86,7 @@ EOF
 #
 # libgcc_s.so.1 provides the unwinder symbols (_Unwind_*) the dynamically
 # linked binary needs at runtime. The DHI runtime image doesn't ship it.
+# libstdc++.so.6 is the same story for BoringSSL, which is C++.
 COPY src ./src
 RUN <<'EOF'
 set -eu
@@ -94,6 +95,7 @@ strip target/release/proxy
 mkdir -p /rootfs/etc/proxy /rootfs/var/lib/proxy/certs /rootfs/usr/lib
 cp target/release/proxy /rootfs/proxy
 cp -L /usr/lib/libgcc_s.so.1 /rootfs/usr/lib/libgcc_s.so.1
+cp -L /usr/lib/libstdc++.so.6 /rootfs/usr/lib/libstdc++.so.6
 EOF
 
 
@@ -109,6 +111,7 @@ COPY --from=builder --chown=65532:65532 /rootfs/proxy /usr/local/bin/proxy
 COPY --from=builder --chown=65532:65532 /rootfs/etc/proxy /etc/proxy
 COPY --from=builder --chown=65532:65532 /rootfs/var/lib/proxy /var/lib/proxy
 COPY --from=builder /rootfs/usr/lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
+COPY --from=builder /rootfs/usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
 
 ENV CONFIG_PATH=/etc/proxy/config.toml \
     CERT_DIR=/var/lib/proxy/certs \
