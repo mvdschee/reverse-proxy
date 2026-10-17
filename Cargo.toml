@@ -58,7 +58,8 @@ http = "1.5.0"
 pingora = { version = "0.9.0", features = ["proxy", "boringssl"] }
 # https://github.com/cloudflare/pingora/blob/0.9.0/pingora-boringssl/Cargo.toml
 # keep it in-sync with the pingora-boringssl crate
-boring = { version = "5.2.0", features = ["pq-experimental"] }
+boring = { version = "=5.2.0", features = ["pq-experimental"] }
+boring-sys = "=5.2.0"
 
 # HTTP Client
 reqwest = { version = "0.13.5", features = ["json"] }
