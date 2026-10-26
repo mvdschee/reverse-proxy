@@ -15,7 +15,9 @@ The code is written by hand, no AI. I want to keep my Rust skills sharp, and I s
 ## Features
 
 - HTTP and HTTPS listeners, both always on
-- Routing by `Host` header from a single TOML file
+- HTTP/2 on the HTTPS listener (negotiated via ALPN, upstreams still get HTTP/1.1)
+- Routing by `Host` header (`:authority` on HTTP/2) from a single TOML file
+- `X-Forwarded-For` and `X-Forwarded-Proto` set on every upstream request
 - Self-signed certs generated on boot for `self_signed` routes
 - 301 redirect from HTTP → HTTPS for any route that has a cert
 - Full ACME / Let's Encrypt: a renewal loop (hourly, every 2 minutes while an order is pending) that orders a cert, writes the DNS TXT record via Cloudflare API, and hot-swaps it in without a restart
@@ -106,14 +108,14 @@ An `[acme]` table and a list of `[[routes]]`. Full annotated schema: [`example/e
 
 A couple of sharp edges:
 
-- `host` is an exact match. A request for `app.example.com:443` will not match a route for `app.example.com`.
+- `host` is an exact match on the hostname. Any port is ignored, so `app.example.com:8443` matches a route for `app.example.com`.
 - "TLS route" means `cert_type` ≠ `none`. Those get the 301 on the HTTP listener and are served on 443 with whatever's in `CERT_DIR` (`<host>.<cert_type>.pem` / `<host>.<cert_type>.key`, e.g. `app.example.com.acme.pem`). Each cert type has its own files, so switching a route's `cert_type` never reuses the other type's cert. Self-signed certs are regenerated on every boot; ACME certs come from the renewal loop (renews within 30 days of expiry).
 - The proxy boots even when cert files are missing. It logs a warning and serves what it can.
 - The cert is picked by SNI. The TLS handshake only succeeds when the client sends SNI and a cert for that host exists.
 - The first ACME cert takes a few minutes. Boot tick writes the TXT record, then a tick every 2 minutes finalizes once the record resolves. Until it lands the host is unreachable: HTTP still 301s to HTTPS, and HTTPS has nothing to serve yet.
 - It talks to Let's Encrypt production by default and agrees to their terms for you. Set `ACME_ENV=staging` while testing to stay clear of the production rate limits.
 - The ACME account is tied to the environment it was created in. Once `acme_account` exists, `ACME_ENV` is ignored. Delete `acme_account` to switch between staging and production.
-- No `X-Forwarded-For` / `X-Forwarded-Proto` headers are added. The upstream sees the proxy as the client.
+- `X-Forwarded-For` is the client's IP and `X-Forwarded-Proto` is `http` or `https`, depending on the listener. Both overwrite whatever the client sent, so the proxy is meant to be the first hop. The `Host` header is passed through unchanged, port included.
 
 ## Environment variables
 
