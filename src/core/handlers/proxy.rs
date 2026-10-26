@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use http::header;
 use pingora::{
 	ErrorType,
-	http::ResponseHeader,
+	http::{RequestHeader, ResponseHeader},
 	listeners::{TlsAccept, tls::TlsSettings},
 	prelude::{Error as PingoraError, HttpPeer, Result as PingoraResult, background_service},
 	proxy::{ProxyHttp, Session, http_proxy_service},
@@ -21,7 +21,7 @@ use pingora::{
 	services::Service,
 	tls::{self, ssl},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::IpAddr, sync::Arc};
 
 pub fn run_proxy(
 	proxy_config: ProxyConfig,
@@ -71,8 +71,9 @@ pub fn tls_routes_service(
 
 	let cert_resolver = CertResolver::new(tls_store);
 	let callback = Box::new(cert_resolver);
-	let tls_settings =
+	let mut tls_settings =
 		TlsSettings::with_callbacks(callback).map_err(|e| Error::Proxy(e.to_string()))?;
+	tls_settings.enable_h2();
 	service.add_tls_with_settings(&listen_addr, None, tls_settings);
 
 	Ok(service)
@@ -117,7 +118,6 @@ impl ProxyHttp for ProxyToUpstream {
 			let host = host_from_session(session)
 				// 400 bad request no host
 				.ok_or_else(|| PingoraError::new(ErrorType::HTTPStatus(400)))?;
-
 			match self.routes_map.get(host) {
 				// 421 Misdirected Request doesnt match any hosts
 				None => {
@@ -163,13 +163,49 @@ impl ProxyHttp for ProxyToUpstream {
 		let peer = Box::new(proxy_to);
 		Ok(peer)
 	}
+
+	async fn upstream_request_filter(
+		&self,
+		session: &mut Session,
+		upstream_request: &mut RequestHeader,
+		_ctx: &mut Self::CTX,
+	) -> PingoraResult<()> {
+		let ip = ip_from_session(session);
+
+		if let Some(ip) = ip {
+			upstream_request.insert_header("X-Forwarded-For", ip.to_string())?
+		};
+
+		upstream_request.insert_header(
+			"X-Forwarded-Proto",
+			if self.upgrade_to_https {
+				"http"
+			} else {
+				"https"
+			},
+		)?;
+
+		Ok(())
+	}
 }
 
-// note to self we are not stripping port from the host header
-// so Host: example.com:443 will be rejected with a 421
-// this is a strict design decision not a bug
+// h2 has no Host header, the host comes in :authority instead
+// the port is stripped so Host: example.com:8443 matches example.com
 fn host_from_session(session: &Session) -> Option<&str> {
-	session.get_header(header::HOST).and_then(|h| h.to_str().ok())
+	let authority = session
+		.get_header(header::HOST)
+		.and_then(|h| h.to_str().ok())
+		.or_else(|| session.req_header().uri.authority().map(|a| a.as_str()))?;
+
+	match authority.rsplit_once(':') {
+		// a ':' inside [] belongs to an IPv6 literal, not a port
+		Some((host, _)) if !authority.ends_with(']') => Some(host),
+		_ => Some(authority),
+	}
+}
+
+fn ip_from_session(session: &Session) -> Option<IpAddr> {
+	session.client_addr()?.as_inet().map(|addr| addr.ip())
 }
 
 struct CertResolver {

@@ -6,11 +6,6 @@ host        = "git.example.com"
 upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
 cert_type   = "self_signed"      # default is "none"
 
-[[routes]]
-host        = "test.example.com"
-upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
-cert_type   = "none"             # default is "none"
-
 # acme gets a legit Let's Encrypt cert through the DNS-01 challenge, so the box
 # can stay off the internet: point blog.example.com at a LAN IP and it still works.
 # the renewal loop only picks up acme routes with a dns provider. it orders the
@@ -26,3 +21,8 @@ cert_type   = "acme"
 [routes.dns_provider.cloudflare]
 zone_id   = "your-cloudflare-zone-id"
 api_token = "your-cloudflare-api-token"
+
+[[routes]]
+host        = "test.example.com"
+upstream    = "127.0.0.1:3000"   # use "host.docker.internal:3000" when using docker
+cert_type   = "none"             # default is "none"
