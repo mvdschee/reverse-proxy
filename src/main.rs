@@ -3,6 +3,10 @@ use crate::core::{
 	setup::{HandleCertificates, HandleFileSystem, HandleProxy},
 };
 pub use error::{Error, Result};
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 mod config;
 mod core;

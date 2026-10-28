@@ -126,8 +126,9 @@ A couple of sharp edges:
 | `HTTP_PORT`   | `80`           | `8080`                   | Port for the HTTP listener.                                  |
 | `HTTPS_PORT`  | `443`          | `8443`                   | Port for the HTTPS listener.                                 |
 | `ACME_ENV`    | `production`   | `production`             | `production` or `staging`. Other values get rejected         |
+| `MIMALLOC_ALLOW_THP` | `1`     | `0`                      | `0` turns off transparent huge pages for the process. On hosts with THP set to `always`, they push idle RSS up by hundreds of MB. |
 
-The image bakes in the right-hand column (Dockerfile sets all four), so the compose file above doesn't repeat them. Listeners always bind `0.0.0.0`.
+The image bakes in the right-hand column (the Dockerfile sets every variable except `ACME_ENV`), so the compose file above doesn't repeat them. Listeners always bind `0.0.0.0`.
 
 ## Container image
 
