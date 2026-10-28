@@ -21,7 +21,7 @@ use pingora::{
 	services::Service,
 	tls::{self, ssl},
 };
-use std::{collections::HashMap, net::IpAddr, sync::Arc};
+use std::{collections::HashMap, net::IpAddr, sync::Arc, thread};
 
 pub fn run_proxy(
 	proxy_config: ProxyConfig,
@@ -29,7 +29,12 @@ pub fn run_proxy(
 	tls_store: TlsStore,
 	renewal: CertBackgroundRenewal,
 ) -> Result<()> {
-	let mut server = Server::new(None).map_err(|e| Error::Proxy(e.to_string()))?;
+	let conf = ServerConf {
+		threads: thread::available_parallelism().map_or(1, |n| n.get()),
+		..Default::default()
+	};
+
+	let mut server = Server::new_with_opt_and_conf(None, conf);
 
 	server.bootstrap();
 
