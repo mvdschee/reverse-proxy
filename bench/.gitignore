@@ -1,0 +1,5 @@
+www/
+tmp/
+results/
+upload-1m.bin
+nginx.pid

@@ -1,0 +1,14 @@
+# proxy config for the benchmarks
+# no acme routes, so the email is never used
+[acme]
+email     = "bench@example.com"
+
+[[routes]]
+host      = "bench.test"
+upstream  = "127.0.0.1:9000"
+cert_type = "self_signed"
+
+[[routes]]
+host      = "bench-plain.test"
+upstream  = "127.0.0.1:9000"
+cert_type = "none"

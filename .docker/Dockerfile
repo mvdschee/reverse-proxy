@@ -116,7 +116,8 @@ COPY --from=builder /rootfs/usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
 ENV CONFIG_PATH=/etc/proxy/config.toml \
     CERT_DIR=/var/lib/proxy/certs \
     HTTP_PORT=8080 \
-    HTTPS_PORT=8443
+    HTTPS_PORT=8443 \
+    MIMALLOC_ALLOW_THP=0
 
 EXPOSE 8080 8443
 
