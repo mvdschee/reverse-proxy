@@ -4,7 +4,7 @@ use crate::{
 		handlers::certs::CertBackgroundRenewal,
 		models::{
 			certs::{TlsMaterial, TlsStore},
-			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap, RequestCtx},
+			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap, RequestCtx, Sni},
 		},
 	},
 	error,
@@ -21,7 +21,7 @@ use pingora::{
 	services::Service,
 	tls::{self, ssl},
 };
-use std::{collections::HashMap, net::IpAddr, sync::Arc, thread};
+use std::{any::Any, collections::HashMap, net::IpAddr, sync::Arc, thread};
 
 pub fn run_proxy(
 	proxy_config: ProxyConfig,
@@ -156,6 +156,7 @@ impl ProxyHttp for ProxyToUpstream {
 		Self::CTX: Send + Sync,
 	{
 		ctx.tls = tls_from_session(session);
+		ctx.sni = sni_from_session(session);
 
 		Ok(())
 	}
@@ -167,12 +168,13 @@ impl ProxyHttp for ProxyToUpstream {
 		session: &mut Session,
 		ctx: &mut Self::CTX,
 	) -> PingoraResult<bool> {
+		let host = host_from_session(session)
+			// 400 bad request no host
+			.ok_or_else(|| PingoraError::new(ErrorType::HTTPStatus(400)))?;
+
 		if !ctx.tls {
-			let host = host_from_session(session)
-				// 400 bad request no host
-				.ok_or_else(|| PingoraError::new(ErrorType::HTTPStatus(400)))?;
 			match self.routes_map.get(host) {
-				// 421 Misdirected Request doesnt match any hosts
+				// 421 Misdirected Request
 				None => {
 					error!("no route for host: {}", host);
 					let header = ResponseHeader::build(421, None)?;
@@ -191,6 +193,14 @@ impl ProxyHttp for ProxyToUpstream {
 				},
 				// All good let it pass.
 				Some(_) => return Ok(false),
+			}
+		} else {
+			// 421 Misdirected Request
+			if ctx.sni.as_deref() != Some(host) {
+				error!("host {} does not match SNI {:?}", host, ctx.sni);
+				let header = ResponseHeader::build(421, None)?;
+				session.write_response_header(Box::new(header), true).await?;
+				return Ok(true);
 			}
 		}
 
@@ -261,8 +271,15 @@ fn ip_from_session(session: &Session) -> Option<IpAddr> {
 	session.client_addr()?.as_inet().map(|addr| addr.ip())
 }
 
+// digest is also Some on plain HTTP, only ssl_digest tells TLS apart
 fn tls_from_session(session: &Session) -> bool {
-	session.digest().is_some()
+	session.digest().is_some_and(|digest| digest.ssl_digest.is_some())
+}
+
+// the SNI is put on the TLS digest by CertResolver::handshake_complete_callback
+fn sni_from_session(session: &Session) -> Option<String> {
+	let ssl_digest = session.digest()?.ssl_digest.as_ref()?;
+	ssl_digest.extension.get::<Sni>().map(|sni| sni.0.clone())
 }
 
 struct CertResolver {
@@ -279,6 +296,15 @@ impl CertResolver {
 
 #[async_trait]
 impl TlsAccept for CertResolver {
+	// whatever is returned here lands on the session's ssl_digest.extension
+	async fn handshake_complete_callback(
+		&self,
+		ssl: &ssl::SslRef,
+	) -> Option<Arc<dyn Any + Send + Sync>> {
+		let sni = ssl.servername(ssl::NameType::HOST_NAME)?.to_owned();
+		Some(Arc::new(Sni(sni)))
+	}
+
 	async fn certificate_callback(&self, ssl: &mut ssl::SslRef) -> () {
 		let sni_provided = ssl.servername(ssl::NameType::HOST_NAME).map(str::to_owned);
 

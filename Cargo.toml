@@ -20,10 +20,10 @@ unsafe_code = "forbid"
 [dependencies]
 # Async
 async-trait = "0.1.92"
-tokio = { version = "1.53.3", features = ["full"] }
+tokio = { version = "1.54.1", features = ["full"] }
 
 # Arc
-arc-swap = "1.9.2"
+arc-swap = "1.9.4"
 
 # Certs
 # aws-lc-rs backend: post-quantum key exchange in rustls
@@ -58,9 +58,10 @@ chrono = { version = "0.4.45", features = ["serde"] }
 
 # HTTP
 http = "1.5.0"
-pingora = { version = "0.9.0", features = ["proxy", "boringssl"] }
-# https://github.com/cloudflare/pingora/blob/0.9.0/pingora-boringssl/Cargo.toml
+pingora = { version = "0.9.1", features = ["proxy", "boringssl"] }
+# https://github.com/cloudflare/pingora/blob/0.9.1/pingora-boringssl/Cargo.toml
 # keep it in-sync with the pingora-boringssl crate
+# pinned: 5.3.0 segfaults on the TLS handshake via the cert callback, 5.4.0 untested
 boring = { version = "=5.2.0", features = ["pq-experimental"] }
 boring-sys = "=5.2.0"
 

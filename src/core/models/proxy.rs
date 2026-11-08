@@ -6,9 +6,12 @@ use std::{collections::HashMap, ops::Deref};
 
 pub type ProxyRouteMap = HashMap<Host, ProxyRoute>;
 
+pub struct Sni(pub String);
+
 #[derive(Default)]
 pub struct RequestCtx {
 	pub tls: bool,
+	pub sni: Option<String>,
 }
 
 #[derive(Debug, Clone)]
