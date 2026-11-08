@@ -48,17 +48,6 @@ pub fn run_proxy(
 
 	server.add_service(routes);
 
-	// 	let routes_map = Arc::new(routes_map);
-	//
-	// 	// plain proxies with redirect
-	// 	let plain_service =
-	// 		plain_routes_service(server_conf.clone(), http_addr.clone(), routes_map.clone())?;
-	// 	server.add_service(plain_service);
-	//
-	// 	// tls proxies
-	// 	let tls_service = tls_routes_service(server_conf, https_addr, routes_map, tls_store)?;
-	// 	server.add_service(tls_service);
-
 	// background cert services
 	server.add_service(background_service("cert-renewal", renewal));
 
@@ -93,39 +82,6 @@ pub fn routes_service(
 
 	Ok(service)
 }
-
-// pub fn tls_routes_service(
-// 	server_conf: Arc<ServerConf>,
-// 	listen_addr: String,
-// 	routes_map: ProxyRouteMap,
-// 	tls_store: TlsStore,
-// ) -> Result<impl Service> {
-// 	let proxy_app = ProxyToUpstream::new(routes_map.clone(), false);
-//
-// 	let mut service = http_proxy_service(&server_conf, proxy_app);
-//
-// 	let cert_resolver = CertResolver::new(tls_store);
-// 	let callback = Box::new(cert_resolver);
-// 	let mut tls_settings =
-// 		TlsSettings::with_callbacks(callback).map_err(|e| Error::Proxy(e.to_string()))?;
-// 	tls_settings.enable_h2();
-// 	service.add_tls_with_settings(&listen_addr, None, tls_settings);
-//
-// 	Ok(service)
-// }
-
-// pub fn plain_routes_service(
-// 	server_conf: Arc<ServerConf>,
-// 	listen_addr: String,
-// 	routes_map: ProxyRouteMap,
-// ) -> Result<impl Service> {
-// 	let proxy_app = ProxyToUpstream::new(routes_map, true);
-//
-// 	let mut service = http_proxy_service(&server_conf, proxy_app);
-// 	service.add_tcp(&listen_addr);
-//
-// 	Ok(service)
-// }
 
 pub struct ProxyToUpstream {
 	routes_map: ProxyRouteMap,

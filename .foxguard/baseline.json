@@ -1,4 +1,17 @@
 {
   "version": 1,
-  "entries": []
+  "entries": [
+    {
+      "fingerprint": "dad9d17fa53e6242d6741fa3d47ef167f726af8e070bf06a2ec8f387ab9009e9",
+      "rule_id": "bash/taint-path-traversal",
+      "file": "bench/run.sh",
+      "line": 29
+    },
+    {
+      "fingerprint": "b9ccc06a1b83c2a7489fb22ad344387d15cdfa79027032957acb952ae3ddebde",
+      "rule_id": "bash/taint-path-traversal",
+      "file": "bench/run.sh",
+      "line": 40
+    }
+  ]
 }
