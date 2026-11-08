@@ -4,7 +4,7 @@ use crate::{
 		handlers::certs::CertBackgroundRenewal,
 		models::{
 			certs::{TlsMaterial, TlsStore},
-			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap},
+			proxy::{ProxyConfig, ProxyRoute, ProxyRouteMap, RequestCtx},
 		},
 	},
 	error,
@@ -35,28 +35,29 @@ pub fn run_proxy(
 	};
 
 	let mut server = Server::new_with_opt_and_conf(None, conf);
-
 	server.bootstrap();
 
 	let server_conf = server.configuration.clone();
-	let http_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.http_port);
-	let https_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.https_port);
-	let mut routes_map = HashMap::new();
 
+	let mut routes_map = HashMap::new();
 	for route in routes {
 		routes_map.insert(route.host.clone(), route);
 	}
 
-	let routes_map = Arc::new(routes_map);
+	let routes = routes_service(server_conf, proxy_config, routes_map, tls_store)?;
 
-	// plain proxies with redirect
-	let plain_service =
-		plain_routes_service(server_conf.clone(), http_addr.clone(), routes_map.clone())?;
-	server.add_service(plain_service);
+	server.add_service(routes);
 
-	// tls proxies
-	let tls_service = tls_routes_service(server_conf, https_addr, routes_map, tls_store)?;
-	server.add_service(tls_service);
+	// 	let routes_map = Arc::new(routes_map);
+	//
+	// 	// plain proxies with redirect
+	// 	let plain_service =
+	// 		plain_routes_service(server_conf.clone(), http_addr.clone(), routes_map.clone())?;
+	// 	server.add_service(plain_service);
+	//
+	// 	// tls proxies
+	// 	let tls_service = tls_routes_service(server_conf, https_addr, routes_map, tls_store)?;
+	// 	server.add_service(tls_service);
 
 	// background cert services
 	server.add_service(background_service("cert-renewal", renewal));
@@ -64,62 +65,109 @@ pub fn run_proxy(
 	server.run_forever();
 }
 
-pub fn tls_routes_service(
+pub fn routes_service(
 	server_conf: Arc<ServerConf>,
-	listen_addr: String,
+	proxy_config: ProxyConfig,
 	routes_map: ProxyRouteMap,
 	tls_store: TlsStore,
 ) -> Result<impl Service> {
-	let proxy_app = ProxyToUpstream::new(routes_map.clone(), false);
+	let http_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.http_port);
+	let https_addr = format!("{}:{}", proxy_config.input_address, *proxy_config.https_port);
+
+	let proxy_app = ProxyToUpstream::new(routes_map);
 
 	let mut service = http_proxy_service(&server_conf, proxy_app);
 
+	// callback to handle certificates
 	let cert_resolver = CertResolver::new(tls_store);
 	let callback = Box::new(cert_resolver);
+
+	// settings to allow h2
 	let mut tls_settings =
 		TlsSettings::with_callbacks(callback).map_err(|e| Error::Proxy(e.to_string()))?;
 	tls_settings.enable_h2();
-	service.add_tls_with_settings(&listen_addr, None, tls_settings);
+
+	// listen on both ports
+	service.add_tls_with_settings(&https_addr, None, tls_settings);
+	service.add_tcp(&http_addr);
 
 	Ok(service)
 }
 
-pub fn plain_routes_service(
-	server_conf: Arc<ServerConf>,
-	listen_addr: String,
-	routes_map: ProxyRouteMap,
-) -> Result<impl Service> {
-	let proxy_app = ProxyToUpstream::new(routes_map, true);
+// pub fn tls_routes_service(
+// 	server_conf: Arc<ServerConf>,
+// 	listen_addr: String,
+// 	routes_map: ProxyRouteMap,
+// 	tls_store: TlsStore,
+// ) -> Result<impl Service> {
+// 	let proxy_app = ProxyToUpstream::new(routes_map.clone(), false);
+//
+// 	let mut service = http_proxy_service(&server_conf, proxy_app);
+//
+// 	let cert_resolver = CertResolver::new(tls_store);
+// 	let callback = Box::new(cert_resolver);
+// 	let mut tls_settings =
+// 		TlsSettings::with_callbacks(callback).map_err(|e| Error::Proxy(e.to_string()))?;
+// 	tls_settings.enable_h2();
+// 	service.add_tls_with_settings(&listen_addr, None, tls_settings);
+//
+// 	Ok(service)
+// }
 
-	let mut service = http_proxy_service(&server_conf, proxy_app);
-	service.add_tcp(&listen_addr);
-
-	Ok(service)
-}
+// pub fn plain_routes_service(
+// 	server_conf: Arc<ServerConf>,
+// 	listen_addr: String,
+// 	routes_map: ProxyRouteMap,
+// ) -> Result<impl Service> {
+// 	let proxy_app = ProxyToUpstream::new(routes_map, true);
+//
+// 	let mut service = http_proxy_service(&server_conf, proxy_app);
+// 	service.add_tcp(&listen_addr);
+//
+// 	Ok(service)
+// }
 
 pub struct ProxyToUpstream {
 	routes_map: ProxyRouteMap,
-	upgrade_to_https: bool,
 }
 
 impl ProxyToUpstream {
-	pub fn new(routes_map: ProxyRouteMap, upgrade_to_https: bool) -> Self {
+	pub fn new(routes_map: ProxyRouteMap) -> Self {
 		Self {
 			routes_map,
-			upgrade_to_https,
 		}
 	}
 }
 
 #[async_trait]
 impl ProxyHttp for ProxyToUpstream {
-	type CTX = ();
-	fn new_ctx(&self) {}
+	type CTX = RequestCtx;
+
+	fn new_ctx(&self) -> Self::CTX {
+		RequestCtx::default()
+	}
+
+	async fn early_request_filter(
+		&self,
+		session: &mut Session,
+		ctx: &mut Self::CTX,
+	) -> PingoraResult<()>
+	where
+		Self::CTX: Send + Sync,
+	{
+		ctx.tls = tls_from_session(session);
+
+		Ok(())
+	}
 
 	// ProxyToUpstream is shared with both HTTP and HTTPS
 	// here we do a quick check to upgrade to HTTPS if its a TLS route
-	async fn request_filter(&self, session: &mut Session, _ctx: &mut ()) -> PingoraResult<bool> {
-		if self.upgrade_to_https {
+	async fn request_filter(
+		&self,
+		session: &mut Session,
+		ctx: &mut Self::CTX,
+	) -> PingoraResult<bool> {
+		if !ctx.tls {
 			let host = host_from_session(session)
 				// 400 bad request no host
 				.ok_or_else(|| PingoraError::new(ErrorType::HTTPStatus(400)))?;
@@ -152,7 +200,7 @@ impl ProxyHttp for ProxyToUpstream {
 	async fn upstream_peer(
 		&self,
 		session: &mut Session,
-		_ctx: &mut (),
+		_ctx: &mut Self::CTX,
 	) -> PingoraResult<Box<HttpPeer>> {
 		let host = host_from_session(session)
 			// 400 bad request no host
@@ -173,7 +221,7 @@ impl ProxyHttp for ProxyToUpstream {
 		&self,
 		session: &mut Session,
 		upstream_request: &mut RequestHeader,
-		_ctx: &mut Self::CTX,
+		ctx: &mut Self::CTX,
 	) -> PingoraResult<()> {
 		let ip = ip_from_session(session);
 
@@ -183,7 +231,7 @@ impl ProxyHttp for ProxyToUpstream {
 
 		upstream_request.insert_header(
 			"X-Forwarded-Proto",
-			if self.upgrade_to_https {
+			if !ctx.tls {
 				"http"
 			} else {
 				"https"
@@ -211,6 +259,10 @@ fn host_from_session(session: &Session) -> Option<&str> {
 
 fn ip_from_session(session: &Session) -> Option<IpAddr> {
 	session.client_addr()?.as_inet().map(|addr| addr.ip())
+}
+
+fn tls_from_session(session: &Session) -> bool {
+	session.digest().is_some()
 }
 
 struct CertResolver {

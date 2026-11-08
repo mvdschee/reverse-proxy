@@ -2,9 +2,14 @@ use crate::{
 	core::models::routes::{Host, Upstream},
 	string_newtype,
 };
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref};
 
-pub type ProxyRouteMap = Arc<HashMap<Host, ProxyRoute>>;
+pub type ProxyRouteMap = HashMap<Host, ProxyRoute>;
+
+#[derive(Default)]
+pub struct RequestCtx {
+	pub tls: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct ProxyRoute {
