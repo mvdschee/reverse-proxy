@@ -1,5 +1,6 @@
 use crate::{
 	Error, Result,
+	config::DIR_PERMISSION,
 	core::{
 		handlers::{
 			certs::{CertBackgroundRenewal, create_self_signed_certs, load_tls_store},
@@ -17,7 +18,7 @@ use crate::{
 	},
 	info,
 };
-use std::path::Path;
+use std::{fs::DirBuilder, os::unix::fs::DirBuilderExt, path::Path};
 
 pub struct HandleFileSystem {
 	cert_dir: CertDir,
@@ -37,7 +38,10 @@ impl HandleFileSystem {
 		// no user input is used here, so we can safely use Path::new directly
 		if !Path::new(self.cert_dir.as_str()).exists() {
 			info!("creating cert directory at {}", &self.cert_dir);
-			std::fs::create_dir_all(self.cert_dir.as_str())?;
+			DirBuilder::new()
+				.recursive(true)
+				.mode(DIR_PERMISSION)
+				.create(self.cert_dir.as_str())?;
 		} else {
 			info!("cert directory already exists at {}", &self.cert_dir);
 		}

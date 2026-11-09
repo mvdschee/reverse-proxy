@@ -30,6 +30,7 @@ const CERT_BACKGROUND_TASK_INTERVAL_DEFAULT: u64 = 3600; // 1 hour
 const CERT_BACKGROUND_TASK_INTERVAL_PENDING: u64 = 120; // 2 minutes
 pub const CERT_RENEWAL_TRESHOLD_DAYS: u32 = 30;
 pub const FILE_PERMISSION: u32 = 0o600;
+pub const DIR_PERMISSION: u32 = 0o700;
 
 impl Config {
 	pub fn init() -> Result<Self> {
