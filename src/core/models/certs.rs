@@ -1,6 +1,6 @@
 use crate::{
 	core::models::{dns::ProviderCredentail, filesystem::SafePath, routes::Host},
-	string_newtype,
+	newtype,
 };
 use arc_swap::ArcSwap;
 use pingora::tls::{
@@ -56,10 +56,30 @@ pub type CertPath = SafePath;
 pub type TlsStore = Arc<ArcSwap<HashMap<Host, TlsMaterial>>>;
 
 // --- EMAIL ---
-string_newtype!(Email, derive(Deserialize));
+newtype!(
+   /// Contact email for Let's Encrypt.
+   Email(String),
+   derive(Deserialize)
+);
+
+impl From<String> for Email {
+	fn from(s: String) -> Self {
+		Email(s)
+	}
+}
 
 // --- CERT_DIR ---
-string_newtype!(CertDir, derive(Deserialize));
+newtype!(
+   /// Directory where certs are put.
+   CertDir(String),
+   derive(Deserialize)
+);
+
+impl From<String> for CertDir {
+	fn from(s: String) -> Self {
+		CertDir(s)
+	}
+}
 
 // --- CERT_ACCOUNT_PATH ---
 pub type CertAccountPath = SafePath;

@@ -5,7 +5,7 @@ use crate::{
 		routes::Route,
 		tasks::TaskInterval,
 	},
-	string_newtype,
+	newtype,
 };
 use serde::Deserialize;
 
@@ -35,5 +35,16 @@ pub struct Acme {
 	pub email: Email,
 }
 
-// --- CERT_DIR ---
-string_newtype!(AcmeEnv);
+newtype!(
+   /// Environment for ACME
+   /// - production
+   /// - staging
+   AcmeEnv(String),
+   derive(Deserialize)
+);
+
+impl From<String> for AcmeEnv {
+	fn from(s: String) -> Self {
+		AcmeEnv(s)
+	}
+}

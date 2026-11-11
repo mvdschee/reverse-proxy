@@ -1,4 +1,4 @@
-use crate::{Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, string_newtype};
+use crate::{Result, config::ACME_CHALLENGE_PREFIX, core::models::routes::Host, newtype};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
@@ -23,15 +23,42 @@ pub struct Record {
 }
 
 // --- Challenge Prefix (ex: _acme-challenge.) ---
-string_newtype!(ChallengePrefix, derive(Deserialize));
+newtype!(
+   ChallengePrefix(String),
+   derive(Deserialize)
+);
 
-// API token can be for any provider.
-// we can safely asume that this will always be a string
-string_newtype!(ApiToken, derive(Deserialize));
+impl From<String> for ChallengePrefix {
+	fn from(s: String) -> Self {
+		ChallengePrefix(s)
+	}
+}
 
-// DNS Record ID, meant for any provider
-// the dns provider required to update a record
-string_newtype!(RecordId, derive(Deserialize));
+newtype!(
+   /// API token can be for any provider.
+   /// we can safely asume that this will always be a string
+   ApiToken(String),
+   derive(Deserialize)
+);
+
+impl From<String> for ApiToken {
+	fn from(s: String) -> Self {
+		ApiToken(s)
+	}
+}
+
+newtype!(
+   /// DNS Record ID, meant for any provider
+   /// the dns provider required to update a record
+   RecordId(String),
+   derive(Deserialize)
+);
+
+impl From<String> for RecordId {
+	fn from(s: String) -> Self {
+		RecordId(s)
+	}
+}
 
 // --- DNS Provider credentials ---
 
@@ -62,5 +89,14 @@ pub struct Cloudflare {
 	pub challenge_prefix: ChallengePrefix,
 }
 
-// Zone ID
-string_newtype!(CFZoneId, derive(Deserialize));
+newtype!(
+   /// Zone ID
+   CFZoneId(String),
+   derive(Deserialize)
+);
+
+impl From<String> for CFZoneId {
+	fn from(s: String) -> Self {
+		CFZoneId(s)
+	}
+}

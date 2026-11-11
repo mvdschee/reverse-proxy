@@ -20,14 +20,15 @@ macro_rules! error {
 }
 
 #[macro_export]
-macro_rules! string_newtype {
-    ($name:ident $(, derive($($extra:path),+ $(,)?))?) => {
-        #[derive(Debug, Clone $(, $($extra),+)?)]
-        pub struct $name(String);
+macro_rules! newtype {
+    ($(#[$meta:meta])* $name:ident($inner:ty) $(, derive($($extra:path),+ $(,)?))?) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq $(, $($extra),+)?)]
+        pub struct $name($inner);
 
         impl ::std::ops::Deref for $name {
-            type Target = String;
-            fn deref(&self) -> &String {
+            type Target = $inner;
+            fn deref(&self) -> &$inner {
                 &self.0
             }
         }
@@ -35,12 +36,6 @@ macro_rules! string_newtype {
         impl ::std::fmt::Display for $name {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 write!(f, "{}", self.0)
-            }
-        }
-
-        impl From<String> for $name {
-            fn from(s: String) -> Self {
-                $name(s)
             }
         }
     };

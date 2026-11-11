@@ -1,8 +1,8 @@
 use crate::{
 	core::models::routes::{Host, Upstream},
-	string_newtype,
+	newtype,
 };
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 pub type ProxyRouteMap = HashMap<Host, ProxyRoute>;
 
@@ -29,16 +29,9 @@ pub struct ProxyConfig {
 }
 
 // --- PROXY TLS ---
-#[derive(Debug, Clone)]
-pub struct ProxyTls(bool);
-
-impl Deref for ProxyTls {
-	type Target = bool;
-
-	fn deref(&self) -> &bool {
-		&self.0
-	}
-}
+newtype!(
+   ProxyTls(bool)
+);
 
 impl From<bool> for ProxyTls {
 	fn from(s: bool) -> Self {
@@ -47,16 +40,9 @@ impl From<bool> for ProxyTls {
 }
 
 // --- HTTP(S) PORT ---
-#[derive(Debug, Clone)]
-pub struct ProxyPort(u16);
-
-impl Deref for ProxyPort {
-	type Target = u16;
-
-	fn deref(&self) -> &u16 {
-		&self.0
-	}
-}
+newtype!(
+   ProxyPort(u16)
+);
 
 impl From<u16> for ProxyPort {
 	fn from(s: u16) -> Self {
@@ -65,4 +51,12 @@ impl From<u16> for ProxyPort {
 }
 
 // --- PROXY INPUT ADDRESS ---
-string_newtype!(ProxyInputAddress);
+newtype!(
+   ProxyInputAddress(String)
+);
+
+impl From<String> for ProxyInputAddress {
+	fn from(s: String) -> Self {
+		ProxyInputAddress(s)
+	}
+}

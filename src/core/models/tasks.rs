@@ -1,18 +1,12 @@
+use crate::newtype;
 use serde::Deserialize;
-use std::ops::Deref;
 
 // --- TASK INTERVAL ---
-/// Interval for a task in seconds.
-#[derive(Debug, Clone, Deserialize)]
-pub struct TaskInterval(u64);
-
-impl Deref for TaskInterval {
-	type Target = u64;
-
-	fn deref(&self) -> &u64 {
-		&self.0
-	}
-}
+newtype!(
+   /// Interval for a task in seconds.
+   TaskInterval(u64),
+   derive(Deserialize)
+);
 
 impl From<u64> for TaskInterval {
 	fn from(s: u64) -> Self {

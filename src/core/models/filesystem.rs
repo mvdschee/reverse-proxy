@@ -1,4 +1,12 @@
-use crate::string_newtype;
+use crate::newtype;
 
 // --- SAFEPATH ---
-string_newtype!(SafePath);
+newtype!(
+   SafePath(String)
+);
+
+impl From<String> for SafePath {
+	fn from(s: String) -> Self {
+		SafePath(s)
+	}
+}

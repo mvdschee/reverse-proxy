@@ -1,6 +1,6 @@
 use crate::{
 	core::models::{certs::CertificateType, dns::ProviderCredentail},
-	string_newtype,
+	newtype,
 };
 use serde::Deserialize;
 
@@ -14,7 +14,16 @@ pub struct Route {
 }
 
 // --- HOST ---
-string_newtype!(Host, derive(Deserialize, Hash, Eq, PartialEq));
+newtype!(
+   Host(String),
+   derive(Deserialize, Hash, Eq)
+);
+
+impl From<String> for Host {
+	fn from(s: String) -> Self {
+		Host(s)
+	}
+}
 
 impl std::borrow::Borrow<str> for Host {
 	fn borrow(&self) -> &str {
@@ -23,4 +32,13 @@ impl std::borrow::Borrow<str> for Host {
 }
 
 // --- UPSTREAM ---
-string_newtype!(Upstream, derive(Deserialize));
+newtype!(
+   Upstream(String),
+   derive(Deserialize)
+);
+
+impl From<String> for Upstream {
+	fn from(s: String) -> Self {
+		Upstream(s)
+	}
+}
